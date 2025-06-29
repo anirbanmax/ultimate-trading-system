@@ -2684,10 +2684,7 @@ def main():
                     
                     st.plotly_chart(fig, use_container_width=True)
             
-            # Find this section in your main() function under tab3 (FII/DII Analysis)
-# Replace the HTML display part with this corrected version:
-
-with tab3:
+ with tab3:
     st.subheader("💰 FII/DII Flow Analysis")
     
     if analysis['fii_dii_data']:
