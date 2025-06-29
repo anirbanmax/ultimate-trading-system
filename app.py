@@ -29,226 +29,147 @@ import concurrent.futures
 from scipy.stats import norm
 import math
 warnings.filterwarnings('ignore')
+class SymbolMapper:
+    """Map internal symbols to different data source formats"""
+    
+    def __init__(self):
+        self.yahoo_symbol_map = {
+            'NIFTY': '^NSEI',
+            'BANKNIFTY': '^NSEBANK', 
+            'NIFTYIT': '^CNXIT',
+            'RELIANCE': 'RELIANCE.NS',
+            'HDFCBANK': 'HDFCBANK.NS',
+            'INFY': 'INFY.NS',
+            'TCS': 'TCS.NS',
+            'ICICIBANK': 'ICICIBANK.NS',
+            'HINDUNILVR': 'HINDUNILVR.NS',
+            'ITC': 'ITC.NS',
+            'SBIN': 'SBIN.NS',
+            'BHARTIARTL': 'BHARTIARTL.NS',
+            'KOTAKBANK': 'KOTAKBANK.NS',
+            'LT': 'LT.NS',
+            'ASIANPAINT': 'ASIANPAINT.NS',
+            'MARUTI': 'MARUTI.NS',
+            'M&M': 'M&M.NS',
+            'TATAMOTORS': 'TATAMOTORS.NS',
+            'WIPRO': 'WIPRO.NS'
+        }
+    
+    def get_yahoo_symbol(self, internal_symbol):
+        return self.yahoo_symbol_map.get(internal_symbol, f"{internal_symbol}.NS")
+    
+    def is_index(self, symbol):
+        index_symbols = ['NIFTY', 'BANKNIFTY', 'NIFTYIT', 'SENSEX']
+        return symbol in index_symbols
+
+# Global instance
+symbol_mapper = SymbolMapper()
+
 class AxisDirectRealAPI:
-    """Axis Direct API wrapper for trading operations"""
+    """Real-time Axis Direct API implementation"""
     
     def __init__(self, api_key):
         self.api_key = api_key
         self.session = requests.Session()
-        self.base_url = "https://api.axisdirect.in"  # Example URL
+        self.base_url = "https://apiconnect.angelbroking.com"
         
-        # Set up headers
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'Authorization': f'Bearer {api_key}'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         
+        self.access_token = None
         logger.info("✅ Axis Direct API initialized")
     
     def get_stock_data(self, symbol):
-        """Get stock data from Axis Direct"""
+        """Get stock data with real-time attempt, fallback to Yahoo"""
         try:
-            # In a real implementation, this would call Axis Direct API
-            # For now, we'll use Yahoo Finance as fallback
-            ticker = yf.Ticker(f"{symbol}.NS")
-            info = ticker.info
-            hist = ticker.history(period="1d")
+            # First try real-time data
+            real_time_data = self._get_realtime_data(symbol)
+            if real_time_data:
+                return real_time_data
             
-            if not hist.empty:
-                latest = hist.iloc[-1]
-                prev_close = info.get('previousClose', latest['Close'])
-                
-                return {
-                    'lastPrice': latest['Close'],
-                    'open': latest['Open'],
-                    'high': latest['High'], 
-                    'low': latest['Low'],
-                    'previousClose': prev_close,
-                    'change': latest['Close'] - prev_close,
-                    'pChange': ((latest['Close'] - prev_close) / prev_close) * 100,
-                    'volume': latest['Volume'],
-                    'symbol': symbol,
-                    'data_source': 'Yahoo Finance (Axis Fallback)'
-                }
-            else:
+            # Fallback to Yahoo Finance with clear delay warning
+            logger.warning(f"⚠️ Real-time failed for {symbol}, using Yahoo Finance (15-20 min delay)")
+            return self._get_yahoo_data(symbol)
+            
+        except Exception as e:
+            logger.error(f"❌ Stock data error for {symbol}: {str(e)}")
+            return self._get_yahoo_data(symbol)
+    
+    def _get_realtime_data(self, symbol):
+        """Attempt to get real-time data from Axis Direct"""
+        try:
+            # Real-time API call (this might need authentication)
+            quote_url = f"{self.base_url}/rest/secure/angelbroking/order/v1/getLTP"
+            
+            # Symbol mapping for Axis Direct
+            axis_symbols = {
+                'NIFTY': {'symbol': 'NIFTY 50', 'token': '99926000'},
+                'BANKNIFTY': {'symbol': 'NIFTY BANK', 'token': '99926009'},
+                'RELIANCE': {'symbol': 'RELIANCE-EQ', 'token': '2885'},
+                'HDFCBANK': {'symbol': 'HDFCBANK-EQ', 'token': '1333'},
+                'INFY': {'symbol': 'INFY-EQ', 'token': '1594'},
+                'TCS': {'symbol': 'TCS-EQ', 'token': '11536'},
+                'ICICIBANK': {'symbol': 'ICICIBANK-EQ', 'token': '4963'},
+                'SBIN': {'symbol': 'SBIN-EQ', 'token': '3045'}
+            }
+            
+            symbol_info = axis_symbols.get(symbol)
+            if not symbol_info:
                 return None
-                
-        except Exception as e:
-            logger.error(f"❌ Axis API error for {symbol}: {str(e)}")
-            return None
-    
-    def get_option_chain_data(self, symbol):
-        """Get option chain data from Axis Direct"""
-        try:
-            # In real implementation, this would call Axis Direct options API
-            # For now, return None to use NSE fallback
-            logger.info(f"Axis options data not available for {symbol}, using NSE fallback")
-            return None
             
-        except Exception as e:
-            logger.error(f"❌ Axis options error: {str(e)}")
-            return None
-    
-    def place_order(self, symbol, action, quantity, price=None):
-        """Place order through Axis Direct"""
-        try:
-            # This would implement actual order placement
-            logger.info(f"Order simulation: {action} {quantity} {symbol} at {price}")
-            return {
-                'status': 'simulated',
-                'order_id': f'SIM{int(time.time())}',
-                'message': 'Order simulated - not actually placed'
-            }
-        except Exception as e:
-            logger.error(f"❌ Order placement error: {str(e)}")
-            return {'status': 'error', 'message': str(e)}
-
-
-# =============================================================================
-# REAL-TIME MULTI-SOURCE DATA AGGREGATOR
-# =============================================================================
-
-class MultiSourceDataAggregator:
-    """Real-time data aggregator with multiple live sources"""
-    
-    def __init__(self, axis_api_key):
-        # Initialize real-time APIs
-        self.axis_api = AxisDirectRealTimeAPI(axis_api_key)
-        self.nse_api = NSERealtimeAPI()
-        
-        # Test Axis API on initialization
-        logger.info("🧪 Testing Axis Direct API...")
-        success, result = self.axis_api.test_api_connection()
-        
-        if success:
-            logger.info("✅ Axis Direct API is working - real-time data available")
-            self.axis_working = True
-        else:
-            logger.warning("⚠️ Axis Direct API issues - will use NSE Direct + Yahoo fallback")
-            self.axis_working = False
-            logger.info(f"Axis API Test Result: {str(result)[:200]}...")
-        
-        # Yahoo Finance as final fallback (with delay warning)
-        self.yahoo_fallback = True
-        
-        logger.info("✅ Real-time data aggregator initialized")
-    
-    def get_comprehensive_stock_data(self, symbol):
-        """Get real-time comprehensive stock data"""
-        try:
-            logger.info(f"🔍 Getting REAL-TIME data for {symbol}")
-            
-            data_sources = []
-            primary_data = None
-            
-            # Priority 1: Axis Direct (Real-time, < 1 second delay)
-            if self.axis_working:
-                logger.info("📡 Trying Axis Direct for real-time data...")
-                axis_data = self.axis_api.get_stock_data(symbol)
-                if axis_data:
-                    primary_data = axis_data
-                    data_sources.append(f"Axis Direct ({axis_data.get('delay', 'real-time')})")
-                    logger.info(f"✅ Got real-time data from Axis Direct")
-            
-            # Priority 2: NSE Direct (Real-time, < 5 second delay)
-            if not primary_data:
-                logger.info("📡 Trying NSE Direct for real-time data...")
-                nse_data = self.nse_api.get_nse_quote(symbol)
-                if nse_data:
-                    primary_data = nse_data
-                    data_sources.append(f"NSE Direct ({nse_data.get('delay', '< 5 seconds')})")
-                    logger.info(f"✅ Got real-time data from NSE Direct")
-            
-            # Priority 3: Yahoo Finance (15-20 min delay - WITH WARNING)
-            if not primary_data and self.yahoo_fallback:
-                logger.warning(f"⚠️ Using Yahoo Finance for {symbol} - DATA WILL BE DELAYED 15-20 MINUTES")
-                yahoo_data = self._get_yahoo_fallback(symbol)
-                if yahoo_data:
-                    primary_data = yahoo_data
-                    primary_data['delay_warning'] = '⚠️ 15-20 MINUTE DELAY'
-                    data_sources.append("Yahoo Finance (⚠️ DELAYED)")
-                    logger.warning(f"⚠️ Using delayed data from Yahoo Finance")
-            
-            if not primary_data:
-                logger.error(f"❌ Could not get data for {symbol} from any source")
-                return {
-                    'price_data': None,
-                    'historical_data': None,
-                    'technical_indicators': {},
-                    'data_sources': [],
-                    'error': f'No data available for {symbol}',
-                    'timestamp': datetime.now()
-                }
-            
-            # Get historical data for technical analysis
-            historical_data = self._get_historical_data_smart(symbol)
-            if historical_data:
-                data_sources.append('Historical Analysis')
-            
-            # Calculate technical indicators
-            technical_indicators = self._calculate_technical_indicators(historical_data)
-            if technical_indicators:
-                data_sources.append('Technical Indicators')
-            
-            # Add data freshness info
-            primary_data['data_freshness'] = self._get_data_freshness(primary_data.get('data_source', ''))
-            
-            result = {
-                'price_data': primary_data,
-                'historical_data': historical_data,
-                'technical_indicators': technical_indicators,
-                'data_sources': data_sources,
-                'timestamp': datetime.now(),
-                'real_time_status': self._get_realtime_status(primary_data.get('data_source', ''))
+            data = {
+                "exchange": "NSE",
+                "tradingsymbol": symbol_info['symbol'],
+                "symboltoken": symbol_info['token']
             }
             
-            # Log data quality
-            freshness = primary_data.get('data_freshness', 'Unknown')
-            logger.info(f"✅ Data obtained for {symbol}: {freshness}")
+            headers = {
+                'Authorization': f'Bearer {self.api_key}',
+                'Content-Type': 'application/json'
+            }
             
-            return result
+            response = self.session.post(quote_url, json=data, headers=headers, timeout=5)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('status'):
+                    quote = result['data']
+                    current_price = float(quote.get('ltp', 0))
+                    prev_close = float(quote.get('close', current_price))
+                    
+                    logger.info(f"✅ Real-time data from Axis: {symbol} = ₹{current_price:.2f}")
+                    
+                    return {
+                        'lastPrice': current_price,
+                        'open': float(quote.get('open', current_price)),
+                        'high': float(quote.get('high', current_price)),
+                        'low': float(quote.get('low', current_price)),
+                        'previousClose': prev_close,
+                        'change': current_price - prev_close,
+                        'pChange': ((current_price - prev_close) / prev_close * 100) if prev_close != 0 else 0,
+                        'volume': int(quote.get('volume', 0)),
+                        'symbol': symbol,
+                        'data_source': 'Axis Direct (Real-time)',
+                        'delay': '< 1 second'
+                    }
+            
+            return None
             
         except Exception as e:
-            logger.error(f"❌ Comprehensive data error for {symbol}: {str(e)}")
-            return {
-                'price_data': None,
-                'historical_data': None,
-                'technical_indicators': {},
-                'data_sources': [],
-                'error': str(e),
-                'timestamp': datetime.now()
-            }
+            logger.warning(f"⚠️ Real-time data failed for {symbol}: {str(e)}")
+            return None
     
-    def _get_data_freshness(self, data_source):
-        """Determine data freshness based on source"""
-        if 'Axis Direct' in data_source:
-            return '🟢 REAL-TIME (< 1 second)'
-        elif 'NSE Direct' in data_source:
-            return '🟢 REAL-TIME (< 5 seconds)'
-        elif 'Yahoo' in data_source:
-            return '🟡 DELAYED (15-20 minutes)'
-        else:
-            return '❓ Unknown freshness'
-    
-    def _get_realtime_status(self, data_source):
-        """Get real-time status"""
-        if 'Axis Direct' in data_source or 'NSE Direct' in data_source:
-            return 'REAL_TIME'
-        elif 'Yahoo' in data_source:
-            return 'DELAYED'
-        else:
-            return 'UNKNOWN'
-    
-    def _get_yahoo_fallback(self, symbol):
-        """Yahoo Finance fallback with delay warning"""
+    def _get_yahoo_data(self, symbol):
+        """Fallback to Yahoo Finance with delay warning"""
         try:
             yahoo_symbol = symbol_mapper.get_yahoo_symbol(symbol)
-            logger.warning(f"📡 Using DELAYED Yahoo data for {symbol} ({yahoo_symbol})")
+            logger.info(f"📡 Getting Yahoo data for {symbol} ({yahoo_symbol}) - DELAYED")
             
             ticker = yf.Ticker(yahoo_symbol)
             hist = ticker.history(period="5d")
-            info = ticker.info
             
             if not hist.empty:
                 latest = hist.iloc[-1]
@@ -268,38 +189,104 @@ class MultiSourceDataAggregator:
                     'pChange': float(pchange),
                     'volume': int(latest['Volume']) if 'Volume' in latest else 0,
                     'symbol': symbol,
-                    'data_source': 'Yahoo Finance (DELAYED)',
+                    'data_source': 'Yahoo Finance (⚠️ 15-20 min delay)',
                     'delay': '15-20 minutes',
-                    'warning': '⚠️ This data is delayed and not suitable for real-time trading'
+                    'delay_warning': True
                 }
             
             return None
             
         except Exception as e:
-            logger.error(f"❌ Yahoo fallback error: {str(e)}")
+            logger.error(f"❌ Yahoo data failed for {symbol}: {str(e)}")
             return None
     
-    def _get_historical_data_smart(self, symbol):
-        """Get historical data with smart source selection"""
+    def get_option_chain_data(self, symbol):
+        """Get option chain data"""
+        # Return None to use NSE fallback in OptionsAnalyzer
+        return None
+# =============================================================================
+# REAL-TIME MULTI-SOURCE DATA AGGREGATOR
+# =============================================================================
+
+class MultiSourceDataAggregator:
+    """Multi-source data aggregator with corrected class references"""
+    
+    def __init__(self, axis_api_key):
+        # Use the corrected class name
+        self.axis_api = AxisDirectRealAPI(axis_api_key)  # This matches the original name
+        self.session = requests.Session()
+        
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        })
+        
+        logger.info("✅ Multi-source data aggregator initialized")
+    
+    def get_comprehensive_stock_data(self, symbol):
+        """Get comprehensive stock data"""
         try:
-            # Try NSE first for indices
-            if symbol in ['NIFTY', 'BANKNIFTY']:
-                # For indices, use Yahoo as it has good historical data
-                yahoo_symbol = symbol_mapper.get_yahoo_symbol(symbol)
-                ticker = yf.Ticker(yahoo_symbol)
-                hist = ticker.history(period="3mo")
-                
-                if not hist.empty:
-                    return {
-                        'date': hist.index.tolist(),
-                        'open': hist['Open'].tolist(),
-                        'high': hist['High'].tolist(),
-                        'low': hist['Low'].tolist(),
-                        'close': hist['Close'].tolist(),
-                        'volume': hist['Volume'].tolist() if 'Volume' in hist.columns else [0] * len(hist)
-                    }
+            logger.info(f"🔍 Getting comprehensive data for {symbol}")
             
-            # For stocks, try Yahoo Finance
+            # Get primary data from Axis API
+            primary_data = self.axis_api.get_stock_data(symbol)
+            
+            if not primary_data:
+                logger.error(f"❌ Could not get data for {symbol}")
+                return {
+                    'price_data': None,
+                    'historical_data': None,
+                    'technical_indicators': {},
+                    'data_sources': [],
+                    'timestamp': datetime.now()
+                }
+            
+            # Determine data source and add freshness info
+            data_source = primary_data.get('data_source', 'Unknown')
+            data_sources = [data_source]
+            
+            if 'Yahoo' in data_source:
+                primary_data['data_freshness'] = '🟡 DELAYED (15-20 minutes)'
+                primary_data['real_time_status'] = 'DELAYED'
+            elif 'Axis Direct' in data_source:
+                primary_data['data_freshness'] = '🟢 REAL-TIME (< 1 second)'
+                primary_data['real_time_status'] = 'REAL_TIME'
+            else:
+                primary_data['data_freshness'] = '❓ Unknown freshness'
+                primary_data['real_time_status'] = 'UNKNOWN'
+            
+            # Get historical data
+            historical_data = self._get_historical_data(symbol)
+            if historical_data:
+                data_sources.append('Historical Data')
+            
+            # Calculate technical indicators
+            technical_indicators = self._calculate_technical_indicators(historical_data)
+            if technical_indicators:
+                data_sources.append('Technical Analysis')
+            
+            logger.info(f"✅ Data obtained for {symbol}: {primary_data['data_freshness']}")
+            
+            return {
+                'price_data': primary_data,
+                'historical_data': historical_data,
+                'technical_indicators': technical_indicators,
+                'data_sources': data_sources,
+                'timestamp': datetime.now()
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Comprehensive data error for {symbol}: {str(e)}")
+            return {
+                'price_data': None,
+                'historical_data': None,
+                'technical_indicators': {},
+                'data_sources': [],
+                'timestamp': datetime.now()
+            }
+    
+    def _get_historical_data(self, symbol):
+        """Get historical data for technical analysis"""
+        try:
             yahoo_symbol = symbol_mapper.get_yahoo_symbol(symbol)
             ticker = yf.Ticker(yahoo_symbol)
             hist = ticker.history(period="3mo")
@@ -311,9 +298,8 @@ class MultiSourceDataAggregator:
                     'high': hist['High'].tolist(),
                     'low': hist['Low'].tolist(),
                     'close': hist['Close'].tolist(),
-                    'volume': hist['Volume'].tolist()
+                    'volume': hist['Volume'].tolist() if 'Volume' in hist.columns else [0] * len(hist)
                 }
-            
             return None
             
         except Exception as e:
@@ -321,7 +307,7 @@ class MultiSourceDataAggregator:
             return None
     
     def _calculate_technical_indicators(self, historical_data):
-        """Calculate technical indicators (same as before)"""
+        """Calculate technical indicators"""
         try:
             if not historical_data or not historical_data.get('close'):
                 return {}
@@ -329,7 +315,6 @@ class MultiSourceDataAggregator:
             closes = np.array(historical_data['close'])
             highs = np.array(historical_data['high'])
             lows = np.array(historical_data['low'])
-            volumes = np.array(historical_data.get('volume', [1] * len(closes)))
             
             indicators = {}
             
@@ -370,8 +355,7 @@ class MultiSourceDataAggregator:
             
         except Exception as e:
             logger.error(f"❌ Technical indicators error: {str(e)}")
-            return {}
-    
+            return {}    
     def force_realtime_test(self, symbol):
         """Force test all real-time sources for a symbol"""
         logger.info(f"🧪 Testing ALL data sources for {symbol}")
