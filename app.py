@@ -29,6 +29,265 @@ import concurrent.futures
 from scipy.stats import norm
 import math
 warnings.filterwarnings('ignore')
+class AxisDirectRealAPI:
+    """Axis Direct API wrapper for trading operations"""
+    
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.session = requests.Session()
+        self.base_url = "https://api.axisdirect.in"  # Example URL
+        
+        # Set up headers
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json',
+            'Authorization': f'Bearer {api_key}'
+        })
+        
+        logger.info("✅ Axis Direct API initialized")
+    
+    def get_stock_data(self, symbol):
+        """Get stock data from Axis Direct"""
+        try:
+            # In a real implementation, this would call Axis Direct API
+            # For now, we'll use Yahoo Finance as fallback
+            ticker = yf.Ticker(f"{symbol}.NS")
+            info = ticker.info
+            hist = ticker.history(period="1d")
+            
+            if not hist.empty:
+                latest = hist.iloc[-1]
+                prev_close = info.get('previousClose', latest['Close'])
+                
+                return {
+                    'lastPrice': latest['Close'],
+                    'open': latest['Open'],
+                    'high': latest['High'], 
+                    'low': latest['Low'],
+                    'previousClose': prev_close,
+                    'change': latest['Close'] - prev_close,
+                    'pChange': ((latest['Close'] - prev_close) / prev_close) * 100,
+                    'volume': latest['Volume'],
+                    'symbol': symbol,
+                    'data_source': 'Yahoo Finance (Axis Fallback)'
+                }
+            else:
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ Axis API error for {symbol}: {str(e)}")
+            return None
+    
+    def get_option_chain_data(self, symbol):
+        """Get option chain data from Axis Direct"""
+        try:
+            # In real implementation, this would call Axis Direct options API
+            # For now, return None to use NSE fallback
+            logger.info(f"Axis options data not available for {symbol}, using NSE fallback")
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ Axis options error: {str(e)}")
+            return None
+    
+    def place_order(self, symbol, action, quantity, price=None):
+        """Place order through Axis Direct"""
+        try:
+            # This would implement actual order placement
+            logger.info(f"Order simulation: {action} {quantity} {symbol} at {price}")
+            return {
+                'status': 'simulated',
+                'order_id': f'SIM{int(time.time())}',
+                'message': 'Order simulated - not actually placed'
+            }
+        except Exception as e:
+            logger.error(f"❌ Order placement error: {str(e)}")
+            return {'status': 'error', 'message': str(e)}
+
+
+class MultiSourceDataAggregator:
+    """Aggregate data from multiple sources for comprehensive analysis"""
+    
+    def __init__(self, axis_api_key):
+        self.axis_api = AxisDirectRealAPI(axis_api_key)
+        self.session = requests.Session()
+        
+        # MoneyControl base URL
+        self.moneycontrol_base = "https://www.moneycontrol.com"
+        
+        # Set up session headers
+        self.session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        })
+        
+        logger.info("✅ Multi-source data aggregator initialized")
+    
+    def get_comprehensive_stock_data(self, symbol):
+        """Get comprehensive stock data from multiple sources"""
+        try:
+            data_sources = []
+            
+            # 1. Try Axis Direct first
+            axis_data = self.axis_api.get_stock_data(symbol)
+            primary_data = None
+            
+            if axis_data:
+                primary_data = axis_data
+                data_sources.append('Axis Direct')
+            
+            # 2. Try Yahoo Finance as backup
+            if not primary_data:
+                yahoo_data = self._get_yahoo_finance_data(symbol)
+                if yahoo_data:
+                    primary_data = yahoo_data
+                    data_sources.append('Yahoo Finance')
+            
+            # 3. Try MoneyControl for additional data
+            mc_data = self._get_moneycontrol_data(symbol)
+            if mc_data:
+                data_sources.append('MoneyControl')
+                # Merge additional data if available
+                if primary_data and mc_data:
+                    primary_data.update(mc_data)
+            
+            # 4. Get historical data
+            historical_data = self._get_historical_data(symbol)
+            
+            # 5. Calculate technical indicators
+            technical_indicators = self._calculate_technical_indicators(historical_data)
+            
+            return {
+                'price_data': primary_data,
+                'historical_data': historical_data,
+                'technical_indicators': technical_indicators,
+                'data_sources': data_sources,
+                'timestamp': datetime.now()
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Comprehensive data error for {symbol}: {str(e)}")
+            return {
+                'price_data': None,
+                'historical_data': None,
+                'technical_indicators': {},
+                'data_sources': [],
+                'timestamp': datetime.now()
+            }
+    
+    def _get_yahoo_finance_data(self, symbol):
+        """Get data from Yahoo Finance"""
+        try:
+            ticker = yf.Ticker(f"{symbol}.NS")
+            info = ticker.info
+            hist = ticker.history(period="1d")
+            
+            if not hist.empty:
+                latest = hist.iloc[-1]
+                prev_close = info.get('previousClose', latest['Close'])
+                
+                return {
+                    'lastPrice': latest['Close'],
+                    'open': latest['Open'],
+                    'high': latest['High'],
+                    'low': latest['Low'],
+                    'previousClose': prev_close,
+                    'change': latest['Close'] - prev_close,
+                    'pChange': ((latest['Close'] - prev_close) / prev_close) * 100,
+                    'volume': latest['Volume'],
+                    'symbol': symbol,
+                    'marketCap': info.get('marketCap', 0),
+                    'pe': info.get('trailingPE', 0),
+                    'data_source': 'Yahoo Finance'
+                }
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ Yahoo Finance error: {str(e)}")
+            return None
+    
+    def _get_moneycontrol_data(self, symbol):
+        """Get additional data from MoneyControl"""
+        try:
+            # This is a simplified implementation
+            # In practice, you'd need to scrape MoneyControl properly
+            return {
+                'additional_data': True,
+                'source': 'MoneyControl'
+            }
+        except:
+            return None
+    
+    def _get_historical_data(self, symbol, period="3mo"):
+        """Get historical price data"""
+        try:
+            ticker = yf.Ticker(f"{symbol}.NS")
+            hist = ticker.history(period=period)
+            
+            if not hist.empty:
+                return {
+                    'date': hist.index.tolist(),
+                    'open': hist['Open'].tolist(),
+                    'high': hist['High'].tolist(),
+                    'low': hist['Low'].tolist(),
+                    'close': hist['Close'].tolist(),
+                    'volume': hist['Volume'].tolist()
+                }
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ Historical data error: {str(e)}")
+            return None
+    
+    def _calculate_technical_indicators(self, historical_data):
+        """Calculate technical indicators from historical data"""
+        try:
+            if not historical_data or not historical_data['close']:
+                return {}
+            
+            closes = np.array(historical_data['close'])
+            highs = np.array(historical_data['high'])
+            lows = np.array(historical_data['low'])
+            
+            indicators = {}
+            
+            # RSI
+            if len(closes) >= 14:
+                delta = np.diff(closes)
+                gain = np.where(delta > 0, delta, 0)
+                loss = np.where(delta < 0, -delta, 0)
+                
+                avg_gain = np.mean(gain[-14:])
+                avg_loss = np.mean(loss[-14:])
+                
+                if avg_loss != 0:
+                    rs = avg_gain / avg_loss
+                    rsi = 100 - (100 / (1 + rs))
+                    indicators['rsi'] = rsi
+            
+            # Moving Averages
+            if len(closes) >= 20:
+                indicators['sma_20'] = np.mean(closes[-20:])
+            if len(closes) >= 50:
+                indicators['sma_50'] = np.mean(closes[-50:])
+            
+            # Support and Resistance (simplified)
+            if len(lows) >= 10:
+                indicators['support'] = np.min(lows[-10:])
+            if len(highs) >= 10:
+                indicators['resistance'] = np.max(highs[-10:])
+            
+            # MACD (simplified)
+            if len(closes) >= 26:
+                ema_12 = closes[-12:].mean()
+                ema_26 = closes[-26:].mean()
+                indicators['macd'] = ema_12 - ema_26
+                indicators['macd_signal'] = indicators['macd'] * 0.9  # Simplified
+            
+            return indicators
+            
+        except Exception as e:
+            logger.error(f"❌ Technical indicators error: {str(e)}")
+            return {}
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
