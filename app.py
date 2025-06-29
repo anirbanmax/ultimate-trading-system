@@ -2726,6 +2726,41 @@ if hasattr(st.session_state, 'latest_comprehensive_analysis'):
         st.write("✅ **Risk Management**")
         st.write("✅ **Options Strategies**")
         st.write("✅ **Foreign Policy Impact**")
+st.markdown("---")
+st.subheader("📱 Telegram Alerts")
+
+# Simple Telegram setup
+bot_token = st.text_input("🤖 Bot Token", placeholder="Paste your bot token here")
+chat_id = st.text_input("💬 Your Chat ID", value="6740102128")
+
+if st.button("📱 Connect Telegram", use_container_width=True):
+    if bot_token and chat_id:
+        # Create simple Telegram alerts
+        telegram = SimpleTelegramAlerts(bot_token, chat_id)
+        
+        # Test connection
+        if telegram.test_connection():
+            st.success("✅ Telegram connected! Check your phone!")
+            st.session_state.telegram = telegram
+            st.balloons()
+        else:
+            st.error("❌ Connection failed. Check your bot token.")
+    else:
+        st.warning("⚠️ Please enter your bot token")
+
+# Show connection status
+if 'telegram' in st.session_state:
+    st.success("✅ Telegram: Connected")
+    
+    if st.button("📤 Send Test Message", use_container_width=True):
+        telegram = st.session_state.telegram
+        success = telegram.send_message(f"📊 Test message from Trading System!\n\nTime: {datetime.now().strftime('%H:%M:%S')}")
+        if success:
+            st.success("✅ Message sent! Check Telegram!")
+        else:
+            st.error("❌ Failed to send message")
+else:
+    st.info("📱 Enter bot token to connect Telegram")
     
     # Display alerts if any
     if 'market_alerts' in st.session_state and st.session_state.market_alerts:
