@@ -2820,27 +2820,44 @@ def main():
     </style>
     """, unsafe_allow_html=True)
     
-    # Initialize Ultimate Trading System
-   try:
-    if 'ultimate_trading_system' not in st.session_state:
-        with st.spinner("🚀 Initializing Ultimate Trading System..."):
-            axis_api_key = "tIQJyhGWrjzzIj0CfRJHOf3k8ST5to82yxGLnyxFPLniSBmQ"
-            st.session_state.ultimate_trading_system = UltimateTradingSystem(axis_api_key)
-            st.success("✅ System initialized successfully!")
+  # Initialize Ultimate Trading System with proper error handling
+    try:
+        if 'ultimate_trading_system' not in st.session_state:
+            with st.spinner("🚀 Initializing Ultimate Trading System..."):
+                axis_api_key = "tIQJyhGWrjzzIj0CfRJHOf3k8ST5to82yxGLnyxFPLniSBmQ"
+                st.session_state.ultimate_trading_system = UltimateTradingSystem(axis_api_key)
+                st.success("✅ System initialized successfully!")
 
 except Exception as e:
-    st.error(f"❌ System initialization failed: {str(e)}")
-    # Create a minimal fallback system
-    class FallbackSystem:
-        def __init__(self):
-            self.available_instruments = {
-                'NIFTY 50': {'type': 'INDEX', 'symbol': 'NIFTY', 'options': True},
-                'BANK NIFTY': {'type': 'INDEX', 'symbol': 'BANKNIFTY', 'options': True},
-                'Reliance Industries': {'type': 'STOCK', 'symbol': 'RELIANCE', 'options': True}
-            }
-    
+        st.error(f"❌ System initialization failed: {str(e)}")
+        # Create a minimal fallback system
+        class FallbackSystem:
+            def __init__(self):
+                self.available_instruments = {
+                    'NIFTY 50': {'type': 'INDEX', 'symbol': 'NIFTY', 'options': True},
+                    'BANK NIFTY': {'type': 'INDEX', 'symbol': 'BANKNIFTY', 'options': True},
+                    'Reliance Industries': {'type': 'STOCK', 'symbol': 'RELIANCE', 'options': True}
+                }
+self.market_monitor = type('MockMonitor', (), {
+                    'get_monitoring_status': lambda: {'is_active': False, 'market_open': False, 'last_update': None, 'symbols_monitored': [], 'update_interval': 30},
+                    'is_market_open': lambda: False,
+                    'start_monitoring': lambda *args: None,
+                    'stop_monitoring': lambda: None
+                })()
+                self.data_aggregator = type('MockAggregator', (), {
+                    'axis_api': type('MockAPI', (), {
+                        'get_authentication_status': lambda: {'authenticated': False, 'client_code': None, 'has_access_token': False, 'has_refresh_token': False},
+                        'logout': lambda: True
+                    })()
+                })()
+                def get_comprehensive_analysis(self, instrument_name):
+                return {'error': 'System not fully initialized. Please refresh the page.'}
     st.session_state.ultimate_trading_system = FallbackSystem()
     st.warning("⚠️ Running in fallback mode. Some features may be limited.")
+   # Verify system is ready
+    if not hasattr(st.session_state.ultimate_trading_system, 'available_instruments'):
+        st.error("❌ System not properly initialized. Please refresh the page.")
+        return
     
     # Main title
     st.markdown("""
@@ -2859,108 +2876,135 @@ except Exception as e:
     </div>
     """, unsafe_allow_html=True)
     
-    # Monitoring status indicator
-    if hasattr(st.session_state, 'ultimate_trading_system'):
-        monitor = st.session_state.ultimate_trading_system.market_monitor
-        status = monitor.get_monitoring_status()
+    # Monitoring status indicator - with error handling
+    try:
+        if hasattr(st.session_state, 'ultimate_trading_system') and hasattr(st.session_state.ultimate_trading_system, 'market_monitor'):
+            monitor = st.session_state.ultimate_trading_system.market_monitor
+            status = monitor.get_monitoring_status()
+            
+            status_color = "green" if status['is_active'] and status['market_open'] else "orange"
+            status_text = "🟢 LIVE MONITORING" if status['is_active'] and status['market_open'] else "🟡 MARKET CLOSED"
+            
+            st.markdown(f"""
+            <div class="monitoring-status" style="background: {status_color};">
+                <strong>{status_text}</strong><br>
+                Last Update: {status.get('last_update', 'N/A')}<br>
+                Symbols: {len(status.get('symbols_monitored', []))}
+            </div>
+            """, unsafe_allow_html=True)
+    except Exception as e:
+        logger.error(f"❌ Monitoring status error: {str(e)}")
+    
+# Sidebar with comprehensive error handling
+try:
+    with st.sidebar:
+        st.header("🎯 Ultimate Analysis")
+    
+        # Instrument selection with error handling
+        st.subheader("📈 Select Instrument")
+        # Get available instruments safely
+        available_instruments = {}
+        try:
+            if hasattr(st.session_state, 'ultimate_trading_system') and hasattr(st.session_state.ultimate_trading_system, 'available_instruments'):
+                available_instruments = st.session_state.ultimate_trading_system.available_instruments
+            else:
+                # Fallback instruments
+                available_instruments = {
+                    'NIFTY 50': {'type': 'INDEX', 'symbol': 'NIFTY', 'options': True},
+                    'BANK NIFTY': {'type': 'INDEX', 'symbol': 'BANKNIFTY', 'options': True},
+                    'Reliance Industries': {'type': 'STOCK', 'symbol': 'RELIANCE', 'options': True}
+                }
+        except Exception as e:
+            st.error(f"❌ Error loading instruments: {str(e)}")
+            available_instruments = {
+                'NIFTY 50': {'type': 'INDEX', 'symbol': 'NIFTY', 'options': True}
+            }
+                    if available_instruments:
+            selected_instrument = st.selectbox(
+                "Choose Instrument for Analysis:",
+                list(available_instruments.keys()),
+                index=0,
+                help="Select any stock or index for comprehensive analysis"
+            )
+    
+            # Show instrument details
+            instrument_info = available_instruments[selected_instrument]
+            
+            with st.container():
+                st.markdown("**📊 Instrument Details:**")
+                st.write(f"**Type:** {instrument_info['type']}")
+                st.write(f"**Symbol:** {instrument_info['symbol']}")
+                options_available = "✅ Yes" if instrument_info.get('options') else "❌ No"
+                st.write(f"**Options Available:** {options_available}")
+        else:
+            st.error("❌ No instruments available")
+            selected_instrument = "NIFTY 50"
         
-        status_color = "green" if status['is_active'] and status['market_open'] else "orange"
-        status_text = "🟢 LIVE MONITORING" if status['is_active'] and status['market_open'] else "🟡 MARKET CLOSED"
+        st.markdown("---")
+    
+        # Analysis controls
+        st.subheader("🚀 Analysis Controls")
         
-        st.markdown(f"""
-        <div class="monitoring-status" style="background: {status_color};">
-            <strong>{status_text}</strong><br>
-            Last Update: {status.get('last_update', 'N/A')}<br>
-            Symbols: {len(status.get('symbols_monitored', []))}
-        </div>
-        """, unsafe_allow_html=True)
+        if st.button("🎯 Complete Analysis", type="primary", use_container_width=True):
+            with st.spinner(f"🔍 Analyzing {selected_instrument} with all advanced features..."):
+                try:
+                    comprehensive_analysis = st.session_state.ultimate_trading_system.get_comprehensive_analysis(selected_instrument)
+                    st.session_state.latest_comprehensive_analysis = comprehensive_analysis
+                    st.success(f"✅ Analysis complete for {selected_instrument}!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Analysis failed: {str(e)}")
+                    logger.error(f"❌ Analysis error: {str(e)}")
     
-# Replace the incomplete sidebar section at the bottom of your code with this:
-
-# Sidebar
-with st.sidebar:
-    st.header("🎯 Ultimate Analysis")
-    
-    # Instrument selection
-    st.subheader("📈 Select Instrument")
-    selected_instrument = st.selectbox(
-        "Choose Instrument for Analysis:",
-        list(st.session_state.ultimate_trading_system.available_instruments.keys()),
-        index=0,
-        help="Select any stock or index for comprehensive analysis"
-    )
-    
-    # Show instrument details
-    instrument_info = st.session_state.ultimate_trading_system.available_instruments[selected_instrument]
-    
-    with st.container():
-        st.markdown("**📊 Instrument Details:**")
-        st.write(f"**Type:** {instrument_info['type']}")
-        st.write(f"**Symbol:** {instrument_info['symbol']}")
-        options_available = "✅ Yes" if instrument_info.get('options') else "❌ No"
-        st.write(f"**Options Available:** {options_available}")
-    
-    st.markdown("---")
-    
-    # Analysis controls
-    st.subheader("🚀 Analysis Controls")
-    
-    if st.button("🎯 Complete Analysis", type="primary", use_container_width=True):
-        with st.spinner(f"🔍 Analyzing {selected_instrument} with all advanced features..."):
-            try:
-                comprehensive_analysis = st.session_state.ultimate_trading_system.get_comprehensive_analysis(selected_instrument)
-                st.session_state.latest_comprehensive_analysis = comprehensive_analysis
-                st.success(f"✅ Analysis complete for {selected_instrument}!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"❌ Analysis failed: {str(e)}")
-    
-    # Quick test buttons
-    if st.button("🧪 Test Data Sources", use_container_width=True):
-        st.session_state.show_data_test = True
-        st.rerun()
-    
-    if st.button("🔑 Test Authentication", use_container_width=True):
-        st.session_state.show_auth_test = True
-        st.rerun()
-    
-    st.markdown("---")
-    
-    # Real-time monitoring controls
-    st.subheader("📡 Live Monitoring")
-    
-    monitor = st.session_state.ultimate_trading_system.market_monitor
-    status = monitor.get_monitoring_status()
-    
-    if status['is_active']:
-        st.success("🟢 Monitoring: ACTIVE")
-        if st.button("⏹️ Stop Monitoring", use_container_width=True):
-            monitor.stop_monitoring()
-            st.info("📴 Monitoring stopped")
-            time.sleep(1)
+        # Quick test buttons
+        if st.button("🧪 Test Data Sources", use_container_width=True):
+            st.session_state.show_data_test = True
             st.rerun()
-    else:
-        st.info("⚪ Monitoring: INACTIVE")
-        if st.button("▶️ Start Live Monitoring", use_container_width=True):
-            # Monitor top 5 instruments
-            symbols = [info['symbol'] for info in 
-                      list(st.session_state.ultimate_trading_system.available_instruments.values())[:5]]
-            monitor.start_monitoring(symbols, update_interval=30)
-            st.success("✅ Live monitoring started!")
-            time.sleep(1)
+        
+        if st.button("🔑 Test Authentication", use_container_width=True):
+            st.session_state.show_auth_test = True
             st.rerun()
+        
+        st.markdown("---")
     
-    # Market status
-    market_open = monitor.is_market_open()
-    if market_open:
-        st.success("🟢 Market: OPEN")
-    else:
-        st.warning("🟡 Market: CLOSED")
+        # Real-time monitoring controls with error handling
+        st.subheader("📡 Live Monitoring")
+        
+        try:
+            monitor = st.session_state.ultimate_trading_system.market_monitor
+            status = monitor.get_monitoring_status()
+            
+            if status['is_active']:
+                st.success("🟢 Monitoring: ACTIVE")
+                if st.button("⏹️ Stop Monitoring", use_container_width=True):
+                    monitor.stop_monitoring()
+                    st.info("📴 Monitoring stopped")
+                    time.sleep(1)
+                    st.rerun()
+            else:
+                st.info("⚪ Monitoring: INACTIVE")
+                if st.button("▶️ Start Live Monitoring", use_container_width=True):
+                    # Monitor top 5 instruments
+                    symbols = [info['symbol'] for info in 
+                              list(available_instruments.values())[:5]]
+                    monitor.start_monitoring(symbols, update_interval=30)
+                    st.success("✅ Live monitoring started!")
+                    time.sleep(1)
+                    st.rerun()
     
-    if status.get('last_update'):
-        st.write(f"**Last Update:** {status['last_update'].strftime('%H:%M:%S')}")
-    
-    st.markdown("---")
+            # Market status
+            market_open = monitor.is_market_open()
+            if market_open:
+                st.success("🟢 Market: OPEN")
+            else:
+                st.warning("🟡 Market: CLOSED")
+            
+            if status.get('last_update'):
+                st.write(f"**Last Update:** {status['last_update'].strftime('%H:%M:%S')}")
+        
+        except Exception as e:
+            st.error(f"❌ Monitoring error: {str(e)}")
+            st.info("📴 Monitoring: UNAVAILABLE")
     
     # Axis Direct Authentication Status
     st.subheader("⚡ Axis Direct Status")
@@ -3054,9 +3098,6 @@ with st.sidebar:
     if st.button("🎯 All Signals", use_container_width=True):
         st.session_state.show_all_signals = True
         st.rerun()
-
-# Also add this to handle the conditional displays in the main area
-# Add this right after the sidebar code:
 
 # Handle conditional displays based on sidebar button clicks
 if st.session_state.get('show_data_test', False):
