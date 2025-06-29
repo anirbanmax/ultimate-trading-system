@@ -2783,38 +2783,53 @@ if hasattr(st.session_state, 'latest_comprehensive_analysis'):
 st.markdown("---")
 st.subheader("📱 Telegram Alerts")
 
-# Simple Telegram setup
-bot_token = st.text_input("🤖 Bot Token", placeholder="Paste your bot token here")
-chat_id = st.text_input("💬 Your Chat ID", value="6740102128")
+# Hard-coded credentials (replace with your actual values)
+YOUR_BOT_TOKEN = "7640615729:AAEvkK5UtntcWXpO4h2U9SBY9Y_NBkdSXRE"  # Telegram Bot token
+YOUR_CHAT_ID = "6740102128"  # Your chat ID
 
-if st.button("📱 Connect Telegram", use_container_width=True):
-    if bot_token and chat_id:
-        # Create simple Telegram alerts
-        telegram = SimpleTelegramAlerts(bot_token, chat_id)
-        
-        # Test connection
+# Auto-connect on app start
+if 'telegram' not in st.session_state:
+    try:
+        telegram = SimpleTelegramAlerts(YOUR_BOT_TOKEN, YOUR_CHAT_ID)
+        # Test connection silently
         if telegram.test_connection():
-            st.success("✅ Telegram connected! Check your phone!")
             st.session_state.telegram = telegram
-            st.balloons()
-        else:
-            st.error("❌ Connection failed. Check your bot token.")
-    else:
-        st.warning("⚠️ Please enter your bot token")
+    except:
+        pass
 
-# Show connection status
+# Show status and controls
 if 'telegram' in st.session_state:
-    st.success("✅ Telegram: Connected")
+    st.success("✅ Telegram: Auto-Connected!")
     
-    if st.button("📤 Send Test Message", use_container_width=True):
-        telegram = st.session_state.telegram
-        success = telegram.send_message(f"📊 Test message from Trading System!\n\nTime: {datetime.now().strftime('%H:%M:%S')}")
-        if success:
-            st.success("✅ Message sent! Check Telegram!")
-        else:
-            st.error("❌ Failed to send message")
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("📤 Send Test", use_container_width=True):
+            telegram = st.session_state.telegram
+            success = telegram.send_message(f"📊 Test Alert!\n\nTime: {datetime.now().strftime('%H:%M:%S')}")
+            if success:
+                st.success("✅ Sent!")
+            else:
+                st.error("❌ Failed")
+    
+    with col2:
+        if st.button("🔄 Reconnect", use_container_width=True):
+            telegram = SimpleTelegramAlerts(YOUR_BOT_TOKEN, YOUR_CHAT_ID)
+            st.session_state.telegram = telegram
+            st.success("🔄 Reconnected!")
+    
+    # Alert settings
+    st.markdown("**⚙️ Settings**")
+    price_alert_threshold = st.slider("📈 Price Alert (%)", 1.0, 5.0, 2.0, 0.5)
+    signal_alert_threshold = st.slider("🎯 Signal Alert (%)", 70, 95, 80, 5)
+    
+    st.session_state.alert_settings = {
+        'price_threshold': price_alert_threshold,
+        'signal_threshold': signal_alert_threshold
+    }
+
 else:
-    st.info("📱 Enter bot token to connect Telegram")
+    st.error("❌ Telegram connection failed")
+    st.write("Check your bot token in the code")
     
     # Display alerts if any
     if 'market_alerts' in st.session_state and st.session_state.market_alerts:
