@@ -396,6 +396,68 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # =============================================================================
+# SIMPLE TELEGRAM ALERTS - ADD THIS TO YOUR CODE
+# =============================================================================
+
+class SimpleTelegramAlerts:
+    """Super simple Telegram alerts"""
+    
+    def __init__(self, bot_token, chat_id):
+        self.bot_token = bot_token
+        self.chat_id = chat_id
+        self.url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    
+    def send_message(self, message):
+        """Send a simple message to Telegram"""
+        try:
+            data = {
+                'chat_id': self.chat_id,
+                'text': message
+            }
+            response = requests.post(self.url, data=data, timeout=10)
+            return response.status_code == 200
+        except:
+            return False
+    
+    def test_connection(self):
+        """Test if Telegram connection works"""
+        test_message = f"🚀 Trading System Connected!\n\nTime: {datetime.now().strftime('%H:%M:%S')}\n\n✅ Ready to receive alerts!"
+        return self.send_message(test_message)
+    
+    def send_price_alert(self, symbol, price, change_percent):
+        """Send simple price alert"""
+        if abs(change_percent) >= 2:  # Only send if move is 2% or more
+            direction = "📈 UP" if change_percent > 0 else "📉 DOWN"
+            message = f"""
+🔥 PRICE ALERT
+
+Symbol: {symbol}
+Price: ₹{price:.2f}
+Change: {change_percent:+.2f}%
+Direction: {direction}
+
+Time: {datetime.now().strftime('%H:%M:%S')}
+"""
+            return self.send_message(message)
+        return False
+    
+    def send_signal_alert(self, symbol, action, confidence):
+        """Send simple trading signal alert"""
+        if confidence >= 80:  # Only send high confidence signals
+            emoji = "🟢" if action == "BUY" else "🔴"
+            message = f"""
+{emoji} TRADING SIGNAL
+
+Action: {action}
+Symbol: {symbol}
+Confidence: {confidence:.0f}%
+
+Time: {datetime.now().strftime('%H:%M:%S')}
+"""
+            return self.send_message(message)
+        return False
+
+# =============================================================================
 # FII/DII DATA INTEGRATION
 # =============================================================================
 
