@@ -66,7 +66,7 @@ class SymbolMapper:
 symbol_mapper = SymbolMapper()
 
 class AxisDirectRealAPI:
-    """Real-time Axis Direct API implementation"""
+    """Real-time Axis Direct API implementation with authentication"""
     
     def __init__(self, api_key):
         self.api_key = api_key
@@ -80,17 +80,199 @@ class AxisDirectRealAPI:
         })
         
         self.access_token = None
+        self.refresh_token = None
+        self.client_code = None
+        self.authenticated = False
+        
         logger.info("✅ Axis Direct API initialized")
     
-    def get_stock_data(self, symbol):
-        """Get stock data with real-time attempt, fallback to Yahoo"""
+    def authenticate(self, client_code, password, totp=""):
+        """Authenticate with Axis Direct API"""
         try:
-            # First try real-time data
+            logger.info(f"🔐 Attempting authentication for client: {client_code}")
+            
+            # Store credentials
+            self.client_code = client_code
+            
+            # Prepare authentication payload
+            auth_payload = {
+                "clientcode": client_code,
+                "password": password,
+                "totp": totp if totp else ""
+            }
+            
+            # Authentication endpoint
+            auth_url = f"{self.base_url}/rest/auth/angelbroking/user/v1/loginByPassword"
+            
+            # Add API key to headers
+            auth_headers = {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-UserType': 'USER',
+                'X-SourceID': 'WEB',
+                'X-ClientLocalIP': '192.168.1.1',
+                'X-ClientPublicIP': '106.193.147.98',
+                'X-MACAddress': '00:00:00:00:00:00',
+                'X-PrivateKey': self.api_key
+            }
+            
+            # Make authentication request
+            response = self.session.post(
+                auth_url, 
+                json=auth_payload, 
+                headers=auth_headers,
+                timeout=30
+            )
+            
+            logger.info(f"📡 Auth response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                try:
+                    result = response.json()
+                    logger.info(f"📋 Auth response: {result.get('message', 'No message')}")
+                    
+                    if result.get('status') and result.get('data'):
+                        # Extract tokens
+                        data = result['data']
+                        self.access_token = data.get('jwtToken')
+                        self.refresh_token = data.get('refreshToken')
+                        
+                        if self.access_token:
+                            # Update session headers with access token
+                            self.session.headers.update({
+                                'Authorization': f'Bearer {self.access_token}',
+                                'X-UserType': 'USER',
+                                'X-SourceID': 'WEB',
+                                'X-ClientLocalIP': '192.168.1.1',
+                                'X-ClientPublicIP': '106.193.147.98',
+                                'X-MACAddress': '00:00:00:00:00:00',
+                                'X-PrivateKey': self.api_key
+                            })
+                            
+                            self.authenticated = True
+                            logger.info("✅ Authentication successful!")
+                            return True
+                        else:
+                            logger.error("❌ No access token in response")
+                            return False
+                    else:
+                        error_msg = result.get('message', 'Authentication failed')
+                        logger.error(f"❌ Authentication failed: {error_msg}")
+                        return False
+                        
+                except json.JSONDecodeError:
+                    logger.error("❌ Invalid JSON response from authentication")
+                    return False
+            else:
+                logger.error(f"❌ Authentication failed with status: {response.status_code}")
+                try:
+                    error_response = response.json()
+                    logger.error(f"❌ Error details: {error_response}")
+                except:
+                    logger.error(f"❌ Raw response: {response.text[:200]}")
+                return False
+                
+        except requests.exceptions.Timeout:
+            logger.error("❌ Authentication timeout")
+            return False
+        except requests.exceptions.ConnectionError:
+            logger.error("❌ Connection error during authentication")
+            return False
+        except Exception as e:
+            logger.error(f"❌ Authentication error: {str(e)}")
+            return False
+    
+    def test_api_connection(self):
+        """Test API connection and authentication status"""
+        try:
+            if not self.authenticated or not self.access_token:
+                return False, "Not authenticated"
+            
+            # Test with a simple profile request
+            profile_url = f"{self.base_url}/rest/secure/angelbroking/user/v1/getProfile"
+            
+            response = self.session.get(profile_url, timeout=10)
+            
+            if response.status_code == 200:
+                try:
+                    result = response.json()
+                    if result.get('status'):
+                        logger.info("✅ API connection test successful")
+                        return True, result.get('data', {})
+                    else:
+                        logger.error(f"❌ API test failed: {result.get('message')}")
+                        return False, result.get('message', 'API test failed')
+                except json.JSONDecodeError:
+                    logger.error("❌ Invalid response from API test")
+                    return False, "Invalid response format"
+            else:
+                logger.error(f"❌ API test failed with status: {response.status_code}")
+                return False, f"HTTP {response.status_code}"
+                
+        except Exception as e:
+            logger.error(f"❌ API test error: {str(e)}")
+            return False, str(e)
+    
+    def refresh_access_token(self):
+        """Refresh the access token using refresh token"""
+        try:
+            if not self.refresh_token:
+                logger.error("❌ No refresh token available")
+                return False
+            
+            refresh_url = f"{self.base_url}/rest/auth/angelbroking/jwt/v1/generateTokens"
+            
+            refresh_payload = {
+                "refreshToken": self.refresh_token
+            }
+            
+            response = self.session.post(
+                refresh_url,
+                json=refresh_payload,
+                timeout=15
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('status') and result.get('data'):
+                    data = result['data']
+                    self.access_token = data.get('jwtToken')
+                    
+                    # Update session headers
+                    self.session.headers.update({
+                        'Authorization': f'Bearer {self.access_token}'
+                    })
+                    
+                    logger.info("✅ Access token refreshed")
+                    return True
+                    
+            logger.error("❌ Token refresh failed")
+            return False
+            
+        except Exception as e:
+            logger.error(f"❌ Token refresh error: {str(e)}")
+            return False
+    
+    def get_stock_data(self, symbol):
+        """Get stock data with authentication check"""
+        try:
+            # Check authentication first
+            if not self.authenticated:
+                logger.warning(f"⚠️ Not authenticated, using fallback for {symbol}")
+                return self._get_yahoo_data(symbol)
+            
+            # Try real-time data first
             real_time_data = self._get_realtime_data(symbol)
             if real_time_data:
                 return real_time_data
             
-            # Fallback to Yahoo Finance with clear delay warning
+            # If real-time fails, try refreshing token
+            if self.refresh_access_token():
+                real_time_data = self._get_realtime_data(symbol)
+                if real_time_data:
+                    return real_time_data
+            
+            # Fallback to Yahoo Finance
             logger.warning(f"⚠️ Real-time failed for {symbol}, using Yahoo Finance (15-20 min delay)")
             return self._get_yahoo_data(symbol)
             
@@ -101,63 +283,98 @@ class AxisDirectRealAPI:
     def _get_realtime_data(self, symbol):
         """Attempt to get real-time data from Axis Direct"""
         try:
-            # Real-time API call (this might need authentication)
+            if not self.authenticated or not self.access_token:
+                return None
+            
+            # Real-time quote API endpoint
             quote_url = f"{self.base_url}/rest/secure/angelbroking/order/v1/getLTP"
             
-            # Symbol mapping for Axis Direct
+            # Symbol mapping for Axis Direct (Angel Broking format)
             axis_symbols = {
-                'NIFTY': {'symbol': 'NIFTY 50', 'token': '99926000'},
-                'BANKNIFTY': {'symbol': 'NIFTY BANK', 'token': '99926009'},
-                'RELIANCE': {'symbol': 'RELIANCE-EQ', 'token': '2885'},
-                'HDFCBANK': {'symbol': 'HDFCBANK-EQ', 'token': '1333'},
-                'INFY': {'symbol': 'INFY-EQ', 'token': '1594'},
-                'TCS': {'symbol': 'TCS-EQ', 'token': '11536'},
-                'ICICIBANK': {'symbol': 'ICICIBANK-EQ', 'token': '4963'},
-                'SBIN': {'symbol': 'SBIN-EQ', 'token': '3045'}
+                'NIFTY': {'symbol': 'NIFTY 50', 'token': '99926000', 'exchange': 'NSE'},
+                'BANKNIFTY': {'symbol': 'NIFTY BANK', 'token': '99926009', 'exchange': 'NSE'},
+                'RELIANCE': {'symbol': 'RELIANCE-EQ', 'token': '2885', 'exchange': 'NSE'},
+                'HDFCBANK': {'symbol': 'HDFCBANK-EQ', 'token': '1333', 'exchange': 'NSE'},
+                'INFY': {'symbol': 'INFY-EQ', 'token': '1594', 'exchange': 'NSE'},
+                'TCS': {'symbol': 'TCS-EQ', 'token': '11536', 'exchange': 'NSE'},
+                'ICICIBANK': {'symbol': 'ICICIBANK-EQ', 'token': '4963', 'exchange': 'NSE'},
+                'SBIN': {'symbol': 'SBIN-EQ', 'token': '3045', 'exchange': 'NSE'},
+                'ITC': {'symbol': 'ITC-EQ', 'token': '424', 'exchange': 'NSE'},
+                'HINDUNILVR': {'symbol': 'HINDUNILVR-EQ', 'token': '356', 'exchange': 'NSE'},
+                'BHARTIARTL': {'symbol': 'BHARTIARTL-EQ', 'token': '10604', 'exchange': 'NSE'},
+                'KOTAKBANK': {'symbol': 'KOTAKBANK-EQ', 'token': '1922', 'exchange': 'NSE'},
+                'LT': {'symbol': 'LT-EQ', 'token': '2939', 'exchange': 'NSE'},
+                'ASIANPAINT': {'symbol': 'ASIANPAINT-EQ', 'token': '3045', 'exchange': 'NSE'},
+                'MARUTI': {'symbol': 'MARUTI-EQ', 'token': '10999', 'exchange': 'NSE'},
+                'M&M': {'symbol': 'M&M-EQ', 'token': '519', 'exchange': 'NSE'},
+                'TATAMOTORS': {'symbol': 'TATAMOTORS-EQ', 'token': '884', 'exchange': 'NSE'},
+                'WIPRO': {'symbol': 'WIPRO-EQ', 'token': '3787', 'exchange': 'NSE'}
             }
             
             symbol_info = axis_symbols.get(symbol)
             if not symbol_info:
+                logger.warning(f"⚠️ Symbol {symbol} not mapped for Axis Direct")
                 return None
             
-            data = {
-                "exchange": "NSE",
+            # Prepare request payload
+            payload = {
+                "exchange": symbol_info['exchange'],
                 "tradingsymbol": symbol_info['symbol'],
                 "symboltoken": symbol_info['token']
             }
             
-            headers = {
-                'Authorization': f'Bearer {self.api_key}',
-                'Content-Type': 'application/json'
-            }
-            
-            response = self.session.post(quote_url, json=data, headers=headers, timeout=5)
+            # Make API request
+            response = self.session.post(quote_url, json=payload, timeout=10)
             
             if response.status_code == 200:
-                result = response.json()
-                if result.get('status'):
-                    quote = result['data']
-                    current_price = float(quote.get('ltp', 0))
-                    prev_close = float(quote.get('close', current_price))
+                try:
+                    result = response.json()
                     
-                    logger.info(f"✅ Real-time data from Axis: {symbol} = ₹{current_price:.2f}")
-                    
-                    return {
-                        'lastPrice': current_price,
-                        'open': float(quote.get('open', current_price)),
-                        'high': float(quote.get('high', current_price)),
-                        'low': float(quote.get('low', current_price)),
-                        'previousClose': prev_close,
-                        'change': current_price - prev_close,
-                        'pChange': ((current_price - prev_close) / prev_close * 100) if prev_close != 0 else 0,
-                        'volume': int(quote.get('volume', 0)),
-                        'symbol': symbol,
-                        'data_source': 'Axis Direct (Real-time)',
-                        'delay': '< 1 second'
-                    }
+                    if result.get('status') and result.get('data'):
+                        quote = result['data']
+                        current_price = float(quote.get('ltp', 0))
+                        
+                        if current_price > 0:
+                            prev_close = float(quote.get('close', current_price))
+                            change = current_price - prev_close
+                            pchange = (change / prev_close * 100) if prev_close != 0 else 0
+                            
+                            logger.info(f"✅ Real-time data from Axis: {symbol} = ₹{current_price:.2f}")
+                            
+                            return {
+                                'lastPrice': current_price,
+                                'open': float(quote.get('open', current_price)),
+                                'high': float(quote.get('high', current_price)),
+                                'low': float(quote.get('low', current_price)),
+                                'previousClose': prev_close,
+                                'change': change,
+                                'pChange': pchange,
+                                'volume': int(quote.get('volume', 0)),
+                                'symbol': symbol,
+                                'data_source': 'Axis Direct (Real-time)',
+                                'delay': '< 1 second',
+                                'data_freshness': '🟢 REAL-TIME (< 1 second)',
+                                'real_time_status': 'REAL_TIME',
+                                'timestamp': datetime.now()
+                            }
+                        else:
+                            logger.error(f"❌ Invalid price data for {symbol}")
+                            return None
+                    else:
+                        error_msg = result.get('message', 'Unknown error')
+                        logger.error(f"❌ API error for {symbol}: {error_msg}")
+                        return None
+                        
+                except json.JSONDecodeError:
+                    logger.error(f"❌ Invalid JSON response for {symbol}")
+                    return None
+            else:
+                logger.error(f"❌ API request failed for {symbol}: HTTP {response.status_code}")
+                return None
             
+        except requests.exceptions.Timeout:
+            logger.warning(f"⚠️ Timeout getting real-time data for {symbol}")
             return None
-            
         except Exception as e:
             logger.warning(f"⚠️ Real-time data failed for {symbol}: {str(e)}")
             return None
@@ -191,7 +408,10 @@ class AxisDirectRealAPI:
                     'symbol': symbol,
                     'data_source': 'Yahoo Finance (⚠️ 15-20 min delay)',
                     'delay': '15-20 minutes',
-                    'delay_warning': True
+                    'delay_warning': True,
+                    'data_freshness': '🟡 DELAYED (15-20 minutes)',
+                    'real_time_status': 'DELAYED',
+                    'timestamp': datetime.now()
                 }
             
             return None
@@ -201,9 +421,84 @@ class AxisDirectRealAPI:
             return None
     
     def get_option_chain_data(self, symbol):
-        """Get option chain data"""
-        # Return None to use NSE fallback in OptionsAnalyzer
-        return None
+        """Get option chain data (authenticated)"""
+        try:
+            if not self.authenticated:
+                return None
+            
+            # Option chain endpoint
+            option_url = f"{self.base_url}/rest/secure/angelbroking/market/v1/optionChain"
+            
+            # Symbol mapping for options
+            option_symbols = {
+                'NIFTY': {'symbol': 'NIFTY', 'token': '99926000', 'exchange': 'NFO'},
+                'BANKNIFTY': {'symbol': 'BANKNIFTY', 'token': '99926009', 'exchange': 'NFO'}
+            }
+            
+            symbol_info = option_symbols.get(symbol)
+            if not symbol_info:
+                return None
+            
+            payload = {
+                "exchange": symbol_info['exchange'],
+                "symboltoken": symbol_info['token'],
+                "symbol": symbol_info['symbol']
+            }
+            
+            response = self.session.post(option_url, json=payload, timeout=15)
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('status'):
+                    return result.get('data')
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"❌ Option chain error: {str(e)}")
+            return None
+    
+    def logout(self):
+        """Logout and clear authentication"""
+        try:
+            if self.authenticated and self.access_token:
+                logout_url = f"{self.base_url}/rest/secure/angelbroking/user/v1/logout"
+                
+                payload = {
+                    "clientcode": self.client_code
+                }
+                
+                response = self.session.post(logout_url, json=payload, timeout=10)
+                
+                if response.status_code == 200:
+                    logger.info("✅ Logout successful")
+                else:
+                    logger.warning("⚠️ Logout request failed")
+            
+            # Clear authentication data
+            self.access_token = None
+            self.refresh_token = None
+            self.client_code = None
+            self.authenticated = False
+            
+            # Remove auth headers
+            if 'Authorization' in self.session.headers:
+                del self.session.headers['Authorization']
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Logout error: {str(e)}")
+            return False
+    
+    def get_authentication_status(self):
+        """Get current authentication status"""
+        return {
+            'authenticated': self.authenticated,
+            'client_code': self.client_code,
+            'has_access_token': bool(self.access_token),
+            'has_refresh_token': bool(self.refresh_token)
+        }
 # =============================================================================
 # REAL-TIME MULTI-SOURCE DATA AGGREGATOR
 # =============================================================================
@@ -2842,6 +3137,192 @@ else:
                 <small>{alert['timestamp'].strftime('%H:%M:%S')}</small>
             </div>
             """, unsafe_allow_html=True)
+
+st.markdown("---")
+st.subheader("⚡ Axis Direct Real-Time")
+
+# Check if already authenticated
+if 'axis_authenticated' not in st.session_state:
+    st.session_state.axis_authenticated = False
+
+if st.session_state.axis_authenticated:
+    st.success("✅ Axis Direct: Connected (Real-time data active)")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🔄 Test Connection", use_container_width=True):
+            # Test real-time data
+            try:
+                axis_api = st.session_state.ultimate_trading_system.data_aggregator.axis_api
+                test_data = axis_api.get_stock_data('NIFTY')
+                
+                if test_data and 'Real-time' in test_data.get('data_source', ''):
+                    st.success("✅ Real-time data working!")
+                    st.write(f"💰 NIFTY: ₹{test_data['lastPrice']:.2f}")
+                else:
+                    st.warning("⚠️ Getting delayed data")
+            except Exception as e:
+                st.error(f"❌ Test failed: {str(e)}")
+    
+    with col2:
+        if st.button("🔓 Logout", use_container_width=True):
+            st.session_state.axis_authenticated = False
+            if 'axis_credentials' in st.session_state:
+                del st.session_state.axis_credentials
+            st.rerun()
+    
+    # Show account info
+    if 'axis_credentials' in st.session_state:
+        creds = st.session_state.axis_credentials
+        st.write(f"**Client Code:** {creds['client_code']}")
+        st.write(f"**Status:** Real-time data enabled")
+
+else:
+    # Login form
+    with st.form("axis_login"):
+        st.write("**🔐 Login with your Axis Direct credentials**")
+        
+        client_code = st.text_input(
+            "👤 Client Code", 
+            placeholder="Your trading account client code",
+            help="This is your Axis Direct trading account number"
+        )
+        
+        password = st.text_input(
+            "🔒 Trading Password", 
+            type="password",
+            placeholder="Your trading password",
+            help="Your Axis Direct trading account password"
+        )
+        
+        totp = st.text_input(
+            "🔐 TOTP (if enabled)", 
+            placeholder="6-digit code from authenticator app",
+            help="Leave empty if you don't have 2FA enabled",
+            max_chars=6
+        )
+        
+        save_session = st.checkbox("💾 Keep me logged in this session", value=True)
+        
+        login_submitted = st.form_submit_button("🚀 Connect to Axis Direct", use_container_width=True)
+        
+        if login_submitted:
+            if client_code and password:
+                with st.spinner("🔐 Authenticating with Axis Direct..."):
+                    try:
+                        # Get the axis API instance
+                        axis_api = st.session_state.ultimate_trading_system.data_aggregator.axis_api
+                        
+                        # Attempt authentication
+                        success = axis_api.authenticate(client_code, password, totp)
+                        
+                        if success:
+                            st.success("✅ Successfully connected to Axis Direct!")
+                            st.success("🚀 Real-time data is now active!")
+                            
+                            # Save authentication state
+                            st.session_state.axis_authenticated = True
+                            
+                            if save_session:
+                                st.session_state.axis_credentials = {
+                                    'client_code': client_code,
+                                    'password': password,
+                                    'totp': totp
+                                }
+                            
+                            # Test real-time data immediately
+                            test_data = axis_api.get_stock_data('NIFTY')
+                            if test_data:
+                                st.write(f"✅ **Live NIFTY:** ₹{test_data['lastPrice']:.2f} ({test_data['pChange']:+.2f}%)")
+                                if 'Real-time' in test_data.get('data_source', ''):
+                                    st.write("🔥 **Data Status:** Real-time (< 1 second delay)")
+                                else:
+                                    st.write("⚠️ **Data Status:** Still using delayed data")
+                            
+                            st.balloons()
+                            time.sleep(2)
+                            st.rerun()
+                            
+                        else:
+                            st.error("❌ Authentication failed")
+                            st.write("**Common issues:**")
+                            st.write("• Wrong client code or password")
+                            st.write("• TOTP required but not provided")
+                            st.write("• Account not enabled for API access")
+                            st.write("• API key permissions insufficient")
+                            
+                    except Exception as e:
+                        st.error(f"❌ Connection error: {str(e)}")
+                        st.write("**Troubleshooting:**")
+                        st.write("• Verify your Axis Direct account details")
+                        st.write("• Check if API access is enabled")
+                        st.write("• Contact Axis Direct support for API issues")
+            else:
+                st.warning("⚠️ Please enter both client code and password")
+    
+    # Help section
+    with st.expander("❓ Where to find your credentials"):
+        st.markdown("""
+        **👤 Client Code:**
+        - This is your Axis Direct trading account number
+        - Usually 6-8 digits
+        - Found in your account statements or login page
+        
+        **🔒 Trading Password:**
+        - Your regular Axis Direct login password
+        - Same password you use for web/mobile trading
+        
+        **🔐 TOTP (if applicable):**
+        - 6-digit code from Google Authenticator or similar app
+        - Only needed if you have 2FA enabled
+        - Leave empty if you don't use 2FA
+        
+        **🔧 API Access:**
+        - Some accounts may need to enable API access
+        - Contact Axis Direct customer support if needed
+        - Ask them to enable "API trading" for your account
+        """)
+
+# Data source comparison
+st.markdown("---")
+st.subheader("📊 Data Source Status")
+
+# Show current data source
+if hasattr(st.session_state, 'latest_comprehensive_analysis'):
+    analysis = st.session_state.latest_comprehensive_analysis
+    if analysis and 'price_data' in analysis and analysis['price_data']:
+        price_data = analysis['price_data']
+        data_source = price_data.get('data_source', 'Unknown')
+        
+        if 'Real-time' in data_source or 'Axis Direct' in data_source:
+            st.success("🟢 **Current Source:** Real-time (Axis Direct)")
+            st.write("✅ Perfect for day trading")
+            st.write("✅ < 1 second delay")
+        else:
+            st.warning("🟡 **Current Source:** Delayed (Yahoo Finance)")
+            st.write("⚠️ 15-20 minute delay")
+            st.write("✅ Good for swing trading")
+        
+        st.write(f"**Last Update:** {price_data.get('timestamp', datetime.now()).strftime('%H:%M:%S')}")
+else:
+    st.info("📊 Run analysis to see current data source")
+
+# Benefits comparison
+col1, col2 = st.columns(2)
+
+with col1:
+    st.markdown("**🟢 Real-time Benefits:**")
+    st.write("• Day trading ready")
+    st.write("• Instant price updates")
+    st.write("• Options trading precision")
+    st.write("• Quick entry/exit timing")
+
+with col2:
+    st.markdown("**🟡 Delayed Data (Free):**")
+    st.write("• Perfect for swing trading")
+    st.write("• Great for analysis")
+    st.write("• Technical indicators work fine")
+    st.write("• No credentials needed")
     
     # Main content area
     if 'latest_comprehensive_analysis' in st.session_state:
