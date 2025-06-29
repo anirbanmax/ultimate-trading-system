@@ -2821,43 +2821,59 @@ def main():
     """, unsafe_allow_html=True)
     
   # Initialize Ultimate Trading System with proper error handling
-    try:
-        if 'ultimate_trading_system' not in st.session_state:
-            with st.spinner("🚀 Initializing Ultimate Trading System..."):
-                axis_api_key = "tIQJyhGWrjzzIj0CfRJHOf3k8ST5to82yxGLnyxFPLniSBmQ"
-                st.session_state.ultimate_trading_system = UltimateTradingSystem(axis_api_key)
-                st.success("✅ System initialized successfully!")
+try:
+    if 'ultimate_trading_system' not in st.session_state:
+        with st.spinner("🚀 Initializing Ultimate Trading System..."):
+            axis_api_key = "tIQJyhGWrjzzIj0CfRJHOf3k8ST5to82yxGLnyxFPLniSBmQ"
+            st.session_state.ultimate_trading_system = UltimateTradingSystem(axis_api_key)
+            st.success("✅ System initialized successfully!")
 
 except Exception as e:
-        st.error(f"❌ System initialization failed: {str(e)}")
-        # Create a minimal fallback system
-        class FallbackSystem:
-            def __init__(self):
-                self.available_instruments = {
-                    'NIFTY 50': {'type': 'INDEX', 'symbol': 'NIFTY', 'options': True},
-                    'BANK NIFTY': {'type': 'INDEX', 'symbol': 'BANKNIFTY', 'options': True},
-                    'Reliance Industries': {'type': 'STOCK', 'symbol': 'RELIANCE', 'options': True}
-                }
-self.market_monitor = type('MockMonitor', (), {
-                    'get_monitoring_status': lambda: {'is_active': False, 'market_open': False, 'last_update': None, 'symbols_monitored': [], 'update_interval': 30},
-                    'is_market_open': lambda: False,
-                    'start_monitoring': lambda *args: None,
-                    'stop_monitoring': lambda: None
+    st.error(f"❌ System initialization failed: {str(e)}")
+    # Create a minimal fallback system
+    class FallbackSystem:
+        def __init__(self):
+            self.available_instruments = {
+                'NIFTY 50': {'type': 'INDEX', 'symbol': 'NIFTY', 'options': True},
+                'BANK NIFTY': {'type': 'INDEX', 'symbol': 'BANKNIFTY', 'options': True},
+                'Reliance Industries': {'type': 'STOCK', 'symbol': 'RELIANCE', 'options': True},
+                'HDFC Bank': {'type': 'STOCK', 'symbol': 'HDFCBANK', 'options': True},
+                'Infosys': {'type': 'STOCK', 'symbol': 'INFY', 'options': True}
+            }
+            self.market_monitor = type('MockMonitor', (), {
+                'get_monitoring_status': lambda: {
+                    'is_active': False, 
+                    'market_open': False, 
+                    'last_update': None, 
+                    'symbols_monitored': [], 
+                    'update_interval': 30
+                },
+                'is_market_open': lambda: False,
+                'start_monitoring': lambda *args: None,
+                'stop_monitoring': lambda: None
+            })()
+            self.data_aggregator = type('MockAggregator', (), {
+                'axis_api': type('MockAPI', (), {
+                    'get_authentication_status': lambda: {
+                        'authenticated': False, 
+                        'client_code': None, 
+                        'has_access_token': False, 
+                        'has_refresh_token': False
+                    },
+                    'logout': lambda: True
                 })()
-                self.data_aggregator = type('MockAggregator', (), {
-                    'axis_api': type('MockAPI', (), {
-                        'get_authentication_status': lambda: {'authenticated': False, 'client_code': None, 'has_access_token': False, 'has_refresh_token': False},
-                        'logout': lambda: True
-                    })()
-                })()
-                def get_comprehensive_analysis(self, instrument_name):
-                return {'error': 'System not fully initialized. Please refresh the page.'}
+            })()
+        
+        def get_comprehensive_analysis(self, instrument_name):
+            return {'error': 'System not fully initialized. Please refresh the page to try again.'}
+    
     st.session_state.ultimate_trading_system = FallbackSystem()
     st.warning("⚠️ Running in fallback mode. Some features may be limited.")
-   # Verify system is ready
-    if not hasattr(st.session_state.ultimate_trading_system, 'available_instruments'):
-        st.error("❌ System not properly initialized. Please refresh the page.")
-        return
+
+# Verify system is ready
+if not hasattr(st.session_state.ultimate_trading_system, 'available_instruments'):
+    st.error("❌ System not properly initialized. Please refresh the page.")
+    st.stop()
     
     # Main title
     st.markdown("""
@@ -2896,139 +2912,150 @@ self.market_monitor = type('MockMonitor', (), {
         logger.error(f"❌ Monitoring status error: {str(e)}")
     
 # Sidebar with comprehensive error handling
-try:
-    with st.sidebar:
-        st.header("🎯 Ultimate Analysis")
+# Sidebar with comprehensive error handling
+with st.sidebar:
+    st.header("🎯 Ultimate Analysis")
     
-        # Instrument selection with error handling
-        st.subheader("📈 Select Instrument")
-        # Get available instruments safely
-        available_instruments = {}
-        try:
-            if hasattr(st.session_state, 'ultimate_trading_system') and hasattr(st.session_state.ultimate_trading_system, 'available_instruments'):
-                available_instruments = st.session_state.ultimate_trading_system.available_instruments
-            else:
-                # Fallback instruments
-                available_instruments = {
-                    'NIFTY 50': {'type': 'INDEX', 'symbol': 'NIFTY', 'options': True},
-                    'BANK NIFTY': {'type': 'INDEX', 'symbol': 'BANKNIFTY', 'options': True},
-                    'Reliance Industries': {'type': 'STOCK', 'symbol': 'RELIANCE', 'options': True}
-                }
-        except Exception as e:
-            st.error(f"❌ Error loading instruments: {str(e)}")
-            available_instruments = {
-                'NIFTY 50': {'type': 'INDEX', 'symbol': 'NIFTY', 'options': True}
-            }
-                    if available_instruments:
-            selected_instrument = st.selectbox(
-                "Choose Instrument for Analysis:",
-                list(available_instruments.keys()),
-                index=0,
-                help="Select any stock or index for comprehensive analysis"
-            )
+    # Instrument selection with error handling
+    st.subheader("📈 Select Instrument")
     
-            # Show instrument details
-            instrument_info = available_instruments[selected_instrument]
-            
-            with st.container():
-                st.markdown("**📊 Instrument Details:**")
-                st.write(f"**Type:** {instrument_info['type']}")
-                st.write(f"**Symbol:** {instrument_info['symbol']}")
-                options_available = "✅ Yes" if instrument_info.get('options') else "❌ No"
-                st.write(f"**Options Available:** {options_available}")
+    # Get available instruments safely
+    available_instruments = {}
+    try:
+        if hasattr(st.session_state, 'ultimate_trading_system') and hasattr(st.session_state.ultimate_trading_system, 'available_instruments'):
+            available_instruments = st.session_state.ultimate_trading_system.available_instruments
         else:
-            st.error("❌ No instruments available")
-            selected_instrument = "NIFTY 50"
-        
-        st.markdown("---")
+            # Fallback instruments
+            available_instruments = {
+                'NIFTY 50': {'type': 'INDEX', 'symbol': 'NIFTY', 'options': True},
+                'BANK NIFTY': {'type': 'INDEX', 'symbol': 'BANKNIFTY', 'options': True},
+                'Reliance Industries': {'type': 'STOCK', 'symbol': 'RELIANCE', 'options': True}
+            }
+    except Exception as e:
+        st.error(f"❌ Error loading instruments: {str(e)}")
+        available_instruments = {
+            'NIFTY 50': {'type': 'INDEX', 'symbol': 'NIFTY', 'options': True}
+        }
     
-        # Analysis controls
-        st.subheader("🚀 Analysis Controls")
+    if available_instruments:
+        selected_instrument = st.selectbox(
+            "Choose Instrument for Analysis:",
+            list(available_instruments.keys()),
+            index=0,
+            help="Select any stock or index for comprehensive analysis"
+        )
         
-        if st.button("🎯 Complete Analysis", type="primary", use_container_width=True):
-            with st.spinner(f"🔍 Analyzing {selected_instrument} with all advanced features..."):
-                try:
-                    comprehensive_analysis = st.session_state.ultimate_trading_system.get_comprehensive_analysis(selected_instrument)
-                    st.session_state.latest_comprehensive_analysis = comprehensive_analysis
-                    st.success(f"✅ Analysis complete for {selected_instrument}!")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Analysis failed: {str(e)}")
-                    logger.error(f"❌ Analysis error: {str(e)}")
+        # Show instrument details
+        instrument_info = available_instruments[selected_instrument]
+        
+        with st.container():
+            st.markdown("**📊 Instrument Details:**")
+            st.write(f"**Type:** {instrument_info['type']}")
+            st.write(f"**Symbol:** {instrument_info['symbol']}")
+            options_available = "✅ Yes" if instrument_info.get('options') else "❌ No"
+            st.write(f"**Options Available:** {options_available}")
+    else:
+        st.error("❌ No instruments available")
+        selected_instrument = "NIFTY 50"
     
-        # Quick test buttons
-        if st.button("🧪 Test Data Sources", use_container_width=True):
-            st.session_state.show_data_test = True
-            st.rerun()
-        
-        if st.button("🔑 Test Authentication", use_container_width=True):
-            st.session_state.show_auth_test = True
-            st.rerun()
-        
-        st.markdown("---")
+    st.markdown("---")
     
-        # Real-time monitoring controls with error handling
-        st.subheader("📡 Live Monitoring")
-        
-        try:
-            monitor = st.session_state.ultimate_trading_system.market_monitor
-            status = monitor.get_monitoring_status()
-            
-            if status['is_active']:
-                st.success("🟢 Monitoring: ACTIVE")
-                if st.button("⏹️ Stop Monitoring", use_container_width=True):
-                    monitor.stop_monitoring()
-                    st.info("📴 Monitoring stopped")
-                    time.sleep(1)
-                    st.rerun()
-            else:
-                st.info("⚪ Monitoring: INACTIVE")
-                if st.button("▶️ Start Live Monitoring", use_container_width=True):
-                    # Monitor top 5 instruments
-                    symbols = [info['symbol'] for info in 
-                              list(available_instruments.values())[:5]]
-                    monitor.start_monitoring(symbols, update_interval=30)
-                    st.success("✅ Live monitoring started!")
-                    time.sleep(1)
-                    st.rerun()
+    # Analysis controls
+    st.subheader("🚀 Analysis Controls")
     
-            # Market status
-            market_open = monitor.is_market_open()
-            if market_open:
-                st.success("🟢 Market: OPEN")
-            else:
-                st.warning("🟡 Market: CLOSED")
-            
-            if status.get('last_update'):
-                st.write(f"**Last Update:** {status['last_update'].strftime('%H:%M:%S')}")
+    if st.button("🎯 Complete Analysis", type="primary", use_container_width=True):
+        with st.spinner(f"🔍 Analyzing {selected_instrument} with all advanced features..."):
+            try:
+                comprehensive_analysis = st.session_state.ultimate_trading_system.get_comprehensive_analysis(selected_instrument)
+                st.session_state.latest_comprehensive_analysis = comprehensive_analysis
+                st.success(f"✅ Analysis complete for {selected_instrument}!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Analysis failed: {str(e)}")
+    
+    # Quick test buttons
+    if st.button("🧪 Test Data Sources", use_container_width=True):
+        st.session_state.show_data_test = True
+        st.rerun()
+    
+    if st.button("🔑 Test Authentication", use_container_width=True):
+        st.session_state.show_auth_test = True
+        st.rerun()
+    
+    st.markdown("---")
+    
+    # Real-time monitoring controls with error handling
+    st.subheader("📡 Live Monitoring")
+    
+    try:
+        monitor = st.session_state.ultimate_trading_system.market_monitor
+        status = monitor.get_monitoring_status()
         
-        except Exception as e:
-            st.error(f"❌ Monitoring error: {str(e)}")
-            st.info("📴 Monitoring: UNAVAILABLE")
+        if status['is_active']:
+            st.success("🟢 Monitoring: ACTIVE")
+            if st.button("⏹️ Stop Monitoring", use_container_width=True):
+                monitor.stop_monitoring()
+                st.info("📴 Monitoring stopped")
+                time.sleep(1)
+                st.rerun()
+        else:
+            st.info("⚪ Monitoring: INACTIVE")
+            if st.button("▶️ Start Live Monitoring", use_container_width=True):
+                # Monitor top 5 instruments
+                symbols = [info['symbol'] for info in 
+                          list(available_instruments.values())[:5]]
+                monitor.start_monitoring(symbols, update_interval=30)
+                st.success("✅ Live monitoring started!")
+                time.sleep(1)
+                st.rerun()
+        
+        # Market status
+        market_open = monitor.is_market_open()
+        if market_open:
+            st.success("🟢 Market: OPEN")
+        else:
+            st.warning("🟡 Market: CLOSED")
+        
+        if status.get('last_update'):
+            st.write(f"**Last Update:** {status['last_update'].strftime('%H:%M:%S')}")
+    
+    except Exception as e:
+        st.error(f"❌ Monitoring error: {str(e)}")
+        st.info("📴 Monitoring: UNAVAILABLE")
+    
+    st.markdown("---")
     
     # Axis Direct Authentication Status
     st.subheader("⚡ Axis Direct Status")
     
-    axis_api = st.session_state.ultimate_trading_system.data_aggregator.axis_api
-    auth_status = axis_api.get_authentication_status()
+    try:
+        axis_api = st.session_state.ultimate_trading_system.data_aggregator.axis_api
+        auth_status = axis_api.get_authentication_status()
+        
+        if auth_status['authenticated']:
+            st.success("✅ Authenticated")
+            st.write(f"**Client:** {auth_status['client_code']}")
+            st.write("**Data:** Real-time")
+            
+            if st.button("🔓 Logout", use_container_width=True):
+                axis_api.logout()
+                if 'axis_authenticated' in st.session_state:
+                    st.session_state.axis_authenticated = False
+                if 'axis_credentials' in st.session_state:
+                    del st.session_state.axis_credentials
+                st.success("👋 Logged out")
+                st.rerun()
+        else:
+            st.warning("⚠️ Not Authenticated")
+            st.write("**Data:** Delayed (15-20 min)")
+            
+            if st.button("🔐 Login to Axis Direct", use_container_width=True):
+                st.session_state.show_axis_login = True
+                st.rerun()
     
-    if auth_status['authenticated']:
-        st.success("✅ Authenticated")
-        st.write(f"**Client:** {auth_status['client_code']}")
-        st.write("**Data:** Real-time")
-        
-        if st.button("🔓 Logout", use_container_width=True):
-            axis_api.logout()
-            if 'axis_authenticated' in st.session_state:
-                st.session_state.axis_authenticated = False
-            if 'axis_credentials' in st.session_state:
-                del st.session_state.axis_credentials
-            st.success("👋 Logged out")
-            st.rerun()
-    else:
-        st.warning("⚠️ Not Authenticated")
+    except Exception as e:
+        st.warning("⚠️ Authentication Status: Unknown")
         st.write("**Data:** Delayed (15-20 min)")
-        
         if st.button("🔐 Login to Axis Direct", use_container_width=True):
             st.session_state.show_axis_login = True
             st.rerun()
@@ -3077,19 +3104,31 @@ try:
     
     st.markdown("---")
     
-        # System info
-        st.subheader("🔧 System Info")
+    # System info
+    st.subheader("🔧 System Info")
+    try:
         st.caption(f"**Instruments:** {len(available_instruments)}")
         st.caption(f"**Features:** Live Data, FII/DII, Options, Geopolitical")
-        try:
-            system_status = "Active" if hasattr(st.session_state.ultimate_trading_system, 'available_instruments') else "Limited"
-            st.caption(f"**Status:** {system_status}")
-        except:
-            st.caption(f"**Status:** Unknown")
-
-except Exception as e:
-    st.error(f"❌ Sidebar error: {str(e)}")
-    logger.error(f"❌ Sidebar error: {str(e)}")
+        system_status = "Active" if hasattr(st.session_state.ultimate_trading_system, 'available_instruments') else "Limited"
+        st.caption(f"**Status:** {system_status}")
+    except Exception as e:
+        st.caption(f"**Status:** Unknown")
+    
+    # Quick links
+    st.markdown("---")
+    st.subheader("🔗 Quick Actions")
+    
+    if st.button("📊 Market Overview", use_container_width=True):
+        st.session_state.show_market_overview = True
+        st.rerun()
+    
+    if st.button("📈 Performance Report", use_container_width=True):
+        st.session_state.show_performance = True
+        st.rerun()
+    
+    if st.button("🎯 All Signals", use_container_width=True):
+        st.session_state.show_all_signals = True
+        st.rerun()
 
 # Handle conditional displays based on sidebar button clicks
 if st.session_state.get('show_data_test', False):
@@ -3099,44 +3138,48 @@ if st.session_state.get('show_data_test', False):
         test_symbol = 'NIFTY'  # Test with NIFTY
         
         # Get the data aggregator
-        aggregator = st.session_state.ultimate_trading_system.data_aggregator
-        
-        # Test all sources individually
-        st.subheader("📊 Data Source Test Results")
-        
-        # Test 1: Axis Direct API
-        st.write("**1️⃣ Testing Axis Direct API...**")
         try:
-            axis_api = aggregator.axis_api
-            axis_data = axis_api._get_realtime_data(test_symbol)
+            aggregator = st.session_state.ultimate_trading_system.data_aggregator
             
-            if axis_data:
-                st.success(f"✅ **Axis Direct: WORKING** ({axis_data.get('delay', 'real-time')})")
-                st.write(f"💰 NIFTY Price: ₹{axis_data['lastPrice']:.2f} ({axis_data['pChange']:+.2f}%)")
-                st.write(f"📊 Source: {axis_data['data_source']}")
-                st.write("🎯 **Status: REAL-TIME DATA AVAILABLE**")
-            else:
-                st.error("❌ **Axis Direct: FAILED**")
-                st.write("🔧 **Issues:** Not authenticated or API limitations")
-        except Exception as e:
-            st.error("❌ **Axis Direct: ERROR**")
-            st.write(f"Error: {str(e)[:100]}...")
+            # Test all sources individually
+            st.subheader("📊 Data Source Test Results")
+            
+            # Test 1: Axis Direct API
+            st.write("**1️⃣ Testing Axis Direct API...**")
+            try:
+                axis_api = aggregator.axis_api
+                axis_data = axis_api._get_realtime_data(test_symbol)
+                
+                if axis_data:
+                    st.success(f"✅ **Axis Direct: WORKING** ({axis_data.get('delay', 'real-time')})")
+                    st.write(f"💰 NIFTY Price: ₹{axis_data['lastPrice']:.2f} ({axis_data['pChange']:+.2f}%)")
+                    st.write(f"📊 Source: {axis_data['data_source']}")
+                    st.write("🎯 **Status: REAL-TIME DATA AVAILABLE**")
+                else:
+                    st.error("❌ **Axis Direct: FAILED**")
+                    st.write("🔧 **Issues:** Not authenticated or API limitations")
+            except Exception as e:
+                st.error("❌ **Axis Direct: ERROR**")
+                st.write(f"Error: {str(e)[:100]}...")
+            
+            # Test 2: Yahoo Finance (delayed but reliable)
+            st.write("**2️⃣ Testing Yahoo Finance...**")
+            try:
+                yahoo_data = axis_api._get_yahoo_data(test_symbol)
+                
+                if yahoo_data:
+                    st.warning(f"⚠️ **Yahoo Finance: WORKING** ({yahoo_data.get('delay', '15-20 minutes')})")
+                    st.write(f"💰 NIFTY Price: ₹{yahoo_data['lastPrice']:.2f} ({yahoo_data['pChange']:+.2f}%)")
+                    st.write(f"📊 Source: {yahoo_data['data_source']}")
+                    st.write("⚠️ **Status: DELAYED DATA (15-20 minutes)**")
+                else:
+                    st.error("❌ **Yahoo Finance: FAILED**")
+            except Exception as e:
+                st.error("❌ **Yahoo Finance: ERROR**")
+                st.write(f"Error: {str(e)[:100]}...")
         
-        # Test 2: Yahoo Finance (delayed but reliable)
-        st.write("**2️⃣ Testing Yahoo Finance...**")
-        try:
-            yahoo_data = axis_api._get_yahoo_data(test_symbol)
-            
-            if yahoo_data:
-                st.warning(f"⚠️ **Yahoo Finance: WORKING** ({yahoo_data.get('delay', '15-20 minutes')})")
-                st.write(f"💰 NIFTY Price: ₹{yahoo_data['lastPrice']:.2f} ({yahoo_data['pChange']:+.2f}%)")
-                st.write(f"📊 Source: {yahoo_data['data_source']}")
-                st.write("⚠️ **Status: DELAYED DATA (15-20 minutes)**")
-            else:
-                st.error("❌ **Yahoo Finance: FAILED**")
         except Exception as e:
-            st.error("❌ **Yahoo Finance: ERROR**")
-            st.write(f"Error: {str(e)[:100]}...")
+            st.error(f"❌ System not available for testing: {str(e)}")
 
 if st.session_state.get('show_auth_test', False):
     st.session_state.show_auth_test = False
@@ -3144,33 +3187,37 @@ if st.session_state.get('show_auth_test', False):
     with st.spinner("Testing Axis Direct API authentication..."):
         st.subheader("🔐 API Authentication Test")
         
-        # Test basic API connection
-        axis_api = st.session_state.ultimate_trading_system.data_aggregator.axis_api
-        
-        st.write("**Testing API Key Format...**")
-        if len(axis_api.api_key) >= 32:
-            st.success("✅ API key format looks correct")
-        else:
-            st.warning("⚠️ API key might be too short")
-        
-        st.write("**Testing Authentication Status...**")
-        auth_status = axis_api.get_authentication_status()
-        
-        if auth_status['authenticated']:
-            st.success("✅ Currently authenticated!")
-            st.write(f"**Client Code:** {auth_status['client_code']}")
+        try:
+            # Test basic API connection
+            axis_api = st.session_state.ultimate_trading_system.data_aggregator.axis_api
             
-            # Test API connection
-            success, result = axis_api.test_api_connection()
-            if success:
-                st.success("✅ API connection test successful!")
-                st.write("🎯 Real-time data access confirmed")
+            st.write("**Testing API Key Format...**")
+            if len(axis_api.api_key) >= 32:
+                st.success("✅ API key format looks correct")
             else:
-                st.error("❌ API connection test failed")
-                st.write(f"Error: {result}")
-        else:
-            st.warning("⚠️ Not authenticated")
-            st.write("Use the login form below to authenticate")
+                st.warning("⚠️ API key might be too short")
+            
+            st.write("**Testing Authentication Status...**")
+            auth_status = axis_api.get_authentication_status()
+            
+            if auth_status['authenticated']:
+                st.success("✅ Currently authenticated!")
+                st.write(f"**Client Code:** {auth_status['client_code']}")
+                
+                # Test API connection
+                success, result = axis_api.test_api_connection()
+                if success:
+                    st.success("✅ API connection test successful!")
+                    st.write("🎯 Real-time data access confirmed")
+                else:
+                    st.error("❌ API connection test failed")
+                    st.write(f"Error: {result}")
+            else:
+                st.warning("⚠️ Not authenticated")
+                st.write("Use the login form below to authenticate")
+        
+        except Exception as e:
+            st.error(f"❌ Authentication test failed: {str(e)}")
 
 if st.session_state.get('show_axis_login', False):
     st.session_state.show_axis_login = False
