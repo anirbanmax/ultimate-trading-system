@@ -4022,57 +4022,5 @@ if st.session_state.get('ultimate_trading_system'):
         if monitor.is_market_open():
             st.rerun()
 
-# Call the main display function
-display_comprehensive_analysis()
-
-# Handle other conditional displays
-if st.session_state.get('show_market_overview', False):
-    st.session_state.show_market_overview = False
-    st.subheader("📊 Market Overview")
-    st.info("Market overview feature - showing top movers, sector performance, etc.")
-
-if st.session_state.get('show_performance', False):
-    st.session_state.show_performance = False
-    st.subheader("📈 Performance Report")
-    
-    try:
-        db_manager = st.session_state.ultimate_trading_system.db_manager
-        performance = db_manager.get_performance_summary(days=30)
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            st.metric("Total Signals (30d)", performance['total_signals'])
-        
-        with col2:
-            st.metric("Avg Confidence", f"{performance['avg_confidence']:.1f}%")
-        
-        with col3:
-            st.metric("Data Quality", "GOOD")
-        
-        if performance['signals_summary']:
-            st.subheader("Signal Breakdown")
-            
-            import pandas as pd
-            df = pd.DataFrame(performance['signals_summary'])
-            st.dataframe(df, use_container_width=True)
-    
-    except Exception as e:
-        st.error(f"Performance report error: {str(e)}")
-
-if st.session_state.get('show_all_signals', False):
-    st.session_state.show_all_signals = False
-    st.subheader("🎯 All Recent Signals")
-    st.info("All signals view - showing comprehensive signal history and performance")
-
-# Auto-refresh for real-time monitoring
-if st.session_state.get('ultimate_trading_system'):
-    monitor = st.session_state.ultimate_trading_system.market_monitor
-    if monitor.get_monitoring_status()['is_active']:
-        # Auto-refresh every 30 seconds during market hours
-        time.sleep(0.1)  # Small delay to prevent too frequent refreshes
-        if monitor.is_market_open():
-            st.rerun()
-
 if __name__ == "__main__":
     main()
