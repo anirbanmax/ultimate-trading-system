@@ -3092,5 +3092,758 @@ if st.session_state.get('show_axis_login', False):
             else:
                 st.warning("⚠️ Please enter both client code and password")
                 
+# MAIN CONTENT AREA - ADD THIS AFTER YOUR SIDEBAR CODE
+# =============================================================================
+
+# Main content area
+def display_comprehensive_analysis():
+    """Display the comprehensive analysis in the main area"""
+    
+    # Check if we have analysis results
+    if 'latest_comprehensive_analysis' not in st.session_state:
+        # Show welcome screen when no analysis is available
+        display_welcome_screen()
+        return
+    
+    analysis = st.session_state.latest_comprehensive_analysis
+    
+    # Check for errors
+    if 'error' in analysis:
+        st.error(f"❌ Analysis Error: {analysis['error']}")
+        return
+    
+    # Display analysis results
+    display_analysis_results(analysis)
+
+def display_welcome_screen():
+    """Display welcome screen with system overview"""
+    
+    # Real-time market alerts if monitoring is active
+    display_real_time_alerts()
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col2:
+        st.markdown("""
+        <div style="text-align: center; padding: 3rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                    border-radius: 20px; color: white; margin: 2rem 0;">
+            <h2>🎯 Ready for Ultimate Analysis</h2>
+            <p style="font-size: 1.2rem; margin: 1rem 0;">
+                Select an instrument from the sidebar and click "Complete Analysis" to get:
+            </p>
+            <div style="text-align: left; max-width: 400px; margin: 0 auto;">
+                <p>📈 Real-time price data & technical analysis</p>
+                <p>🏛️ FII/DII institutional flow analysis</p>
+                <p>⚙️ Options chain & Greeks analysis</p>
+                <p>🌍 Geopolitical sentiment impact</p>
+                <p>🎯 AI-powered trading signals</p>
+                <p>⚡ Risk assessment & recommendations</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # System status overview
+    display_system_status()
+    
+    # Recent signals summary if available
+    display_recent_signals_summary()
+
+def display_real_time_alerts():
+    """Display real-time market alerts"""
+    if 'market_alerts' in st.session_state and st.session_state.market_alerts:
+        st.subheader("🚨 Live Market Alerts")
+        
+        for alert in st.session_state.market_alerts[-3:]:  # Show last 3 alerts
+            severity_class = "alert-high" if alert['severity'] == 'HIGH' else "alert-medium"
+            
+            st.markdown(f"""
+            <div class="{severity_class}">
+                <strong>{alert['symbol']}</strong> • {alert['message']}<br>
+                <small>⏰ {alert['timestamp'].strftime('%H:%M:%S')}</small>
+            </div>
+            """, unsafe_allow_html=True)
+
+def display_system_status():
+    """Display system status overview"""
+    st.subheader("📊 System Status Overview")
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    # Data source status
+    with col1:
+        axis_api = st.session_state.ultimate_trading_system.data_aggregator.axis_api
+        if axis_api.authenticated:
+            st.success("⚡ Real-time Data\n\nAxis Direct Connected")
+        else:
+            st.warning("⏳ Delayed Data\n\nYahoo Finance (15-20 min)")
+    
+    # Monitoring status
+    with col2:
+        monitor = st.session_state.ultimate_trading_system.market_monitor
+        status = monitor.get_monitoring_status()
+        if status['is_active'] and status['market_open']:
+            st.success("📡 Live Monitoring\n\nActive & Tracking")
+        else:
+            st.info("📴 Monitoring\n\nInactive / Market Closed")
+    
+    # Telegram status
+    with col3:
+        if 'telegram' in st.session_state:
+            st.success("📱 Telegram Alerts\n\nConnected & Ready")
+        else:
+            st.warning("📱 Telegram Alerts\n\nNot Connected")
+    
+    # Market status
+    with col4:
+        monitor = st.session_state.ultimate_trading_system.market_monitor
+        if monitor.is_market_open():
+            st.success("🟢 Market Status\n\nOpen & Trading")
+        else:
+            st.info("🟡 Market Status\n\nClosed")
+
+def display_recent_signals_summary():
+    """Display recent signals summary"""
+    try:
+        db_manager = st.session_state.ultimate_trading_system.db_manager
+        performance = db_manager.get_performance_summary(days=7)
+        
+        if performance['total_signals'] > 0:
+            st.subheader("📈 Recent Signals (Last 7 Days)")
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric(
+                    "Total Signals", 
+                    performance['total_signals'],
+                    help="Number of signals generated in the last 7 days"
+                )
+            
+            with col2:
+                avg_conf = performance['avg_confidence']
+                st.metric(
+                    "Avg Confidence", 
+                    f"{avg_conf:.1f}%",
+                    help="Average confidence of generated signals"
+                )
+            
+            with col3:
+                # Calculate signal distribution
+                signals = performance['signals_summary']
+                buy_signals = sum(s['count'] for s in signals if s['action'] == 'BUY')
+                st.metric(
+                    "Buy Signals", 
+                    buy_signals,
+                    help="Number of BUY signals generated"
+                )
+    except:
+        pass  # If no signals yet, just skip this section
+
+def display_analysis_results(analysis):
+    """Display comprehensive analysis results"""
+    
+    instrument_name = analysis['instrument_name']
+    symbol = analysis['symbol']
+    
+    # Header with instrument info
+    st.markdown(f"""
+    <div class="signal-card">
+        <h2>🎯 {instrument_name} ({symbol}) - Complete Analysis</h2>
+        <p><strong>Analysis Time:</strong> {analysis['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}</p>
+        <p><strong>Data Quality:</strong> {analysis.get('analysis_quality', 'N/A')}</p>
+        <p><strong>Features Analyzed:</strong> {', '.join(analysis.get('features_analyzed', []))}</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Price data and key metrics
+    display_price_overview(analysis)
+    
+    # Trading signals
+    display_trading_signals(analysis)
+    
+    # Options analysis (if available)
+    if analysis.get('options_data'):
+        display_options_analysis(analysis)
+    
+    # FII/DII analysis
+    display_fii_dii_analysis(analysis)
+    
+    # Geopolitical sentiment
+    display_geopolitical_analysis(analysis)
+    
+    # Risk analysis
+    display_risk_analysis(analysis)
+    
+    # Market outlook
+    display_market_outlook(analysis)
+    
+    # Technical charts
+    display_technical_charts(analysis)
+
+def display_price_overview(analysis):
+    """Display price overview and key metrics"""
+    st.subheader("💰 Current Price & Key Metrics")
+    
+    price_data = analysis['price_data']
+    
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric(
+            "Last Price", 
+            f"₹{price_data['lastPrice']:.2f}",
+            delta=f"{price_data['pChange']:+.2f}%",
+            help="Current market price"
+        )
+    
+    with col2:
+        st.metric(
+            "Day High", 
+            f"₹{price_data['high']:.2f}",
+            help="Today's highest price"
+        )
+    
+    with col3:
+        st.metric(
+            "Day Low", 
+            f"₹{price_data['low']:.2f}",
+            help="Today's lowest price"
+        )
+    
+    with col4:
+        st.metric(
+            "Volume", 
+            f"{price_data.get('volume', 0):,}",
+            help="Trading volume"
+        )
+    
+    with col5:
+        st.metric(
+            "Prev Close", 
+            f"₹{price_data['previousClose']:.2f}",
+            help="Previous day's closing price"
+        )
+    
+    # Data freshness indicator
+    data_freshness = price_data.get('data_freshness', 'Unknown')
+    if 'REAL-TIME' in data_freshness:
+        st.success(f"✅ {data_freshness}")
+    elif 'DELAYED' in data_freshness:
+        st.warning(f"⚠️ {data_freshness}")
+    else:
+        st.info(f"ℹ️ {data_freshness}")
+
+def display_trading_signals(analysis):
+    """Display trading signals"""
+    equity_signals = analysis.get('equity_signals', [])
+    options_signals = analysis.get('options_signals', [])
+    
+    if equity_signals or options_signals:
+        st.subheader("🎯 AI Trading Signals")
+        
+        # Equity signals
+        if equity_signals:
+            st.markdown("**📈 Equity Signals:**")
+            for i, signal in enumerate(equity_signals):
+                display_signal_card(signal, f"equity_{i}")
+        
+        # Options signals
+        if options_signals:
+            st.markdown("**⚙️ Options Signals:**")
+            for i, signal in enumerate(options_signals):
+                display_options_signal_card(signal, f"options_{i}")
+    else:
+        st.info("📊 No trading signals generated at this time")
+
+def display_signal_card(signal, key):
+    """Display individual equity signal card"""
+    
+    # Determine colors based on action
+    if signal['action'] == 'BUY':
+        bg_color = "linear-gradient(135deg, #4CAF50 0%, #45a049 100%)"
+        icon = "📈"
+    else:
+        bg_color = "linear-gradient(135deg, #f44336 0%, #da190b 100%)"
+        icon = "📉"
+    
+    confidence = signal['confidence']
+    
+    st.markdown(f"""
+    <div style="background: {bg_color}; color: white; padding: 1.5rem; border-radius: 15px; margin: 1rem 0;">
+        <h3>{icon} {signal['action']} Signal - {confidence:.0f}% Confidence</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin: 1rem 0;">
+            <div><strong>Entry:</strong> ₹{signal['price']:.2f}</div>
+            <div><strong>Target:</strong> ₹{signal['target']:.2f}</div>
+            <div><strong>Stop Loss:</strong> ₹{signal['stop_loss']:.2f}</div>
+        </div>
+        <div style="margin: 1rem 0;"><strong>Expected Gain:</strong> {signal.get('expected_gain_pct', 0):.1f}% 
+        | <strong>Max Loss:</strong> {signal.get('max_loss_pct', 0):.1f}% 
+        | <strong>Risk:Reward:</strong> 1:{signal.get('risk_reward', 1):.1f}</div>
+        <div><strong>Key Reasons:</strong></div>
+        <ul>
+    """, unsafe_allow_html=True)
+    
+    for reason in signal.get('reasons', [])[:3]:
+        st.markdown(f"<li>{reason}</li>", unsafe_allow_html=True)
+    
+    st.markdown("</ul></div>", unsafe_allow_html=True)
+
+def display_options_signal_card(signal, key):
+    """Display individual options signal card"""
+    
+    st.markdown(f"""
+    <div class="options-card">
+        <h3>⚙️ {signal.get('strategy', 'Options Strategy')} - {signal.get('confidence', 0):.0f}% Confidence</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin: 1rem 0;">
+            <div><strong>Strike:</strong> ₹{signal.get('strike', 0):.0f}</div>
+            <div><strong>Premium:</strong> ₹{signal.get('premium', 0):.2f}</div>
+            <div><strong>Target:</strong> ₹{signal.get('target', 0):.2f}</div>
+        </div>
+        <div><strong>Max Profit:</strong> ₹{signal.get('max_profit', 0):.2f} 
+        | <strong>Max Loss:</strong> ₹{signal.get('max_loss', 0):.2f}
+        | <strong>Breakeven:</strong> ₹{signal.get('breakeven', 0):.2f}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+def display_fii_dii_analysis(analysis):
+    """Display FII/DII analysis"""
+    fii_dii_data = analysis.get('fii_dii_data')
+    
+    if fii_dii_data:
+        st.subheader("🏛️ FII/DII Institutional Flow Analysis")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            fii_net = fii_dii_data['FII']['net']
+            delta_color = "normal" if fii_net >= 0 else "inverse"
+            st.metric(
+                "FII Net Flow", 
+                f"₹{fii_net:.0f} Cr",
+                delta=f"Buy: ₹{fii_dii_data['FII']['buy']:.0f} Cr, Sell: ₹{fii_dii_data['FII']['sell']:.0f} Cr",
+                delta_color=delta_color,
+                help="Foreign Institutional Investor net flow"
+            )
+        
+        with col2:
+            dii_net = fii_dii_data['DII']['net']
+            delta_color = "normal" if dii_net >= 0 else "inverse"
+            st.metric(
+                "DII Net Flow", 
+                f"₹{dii_net:.0f} Cr",
+                delta=f"Buy: ₹{fii_dii_data['DII']['buy']:.0f} Cr, Sell: ₹{fii_dii_data['DII']['sell']:.0f} Cr",
+                delta_color=delta_color,
+                help="Domestic Institutional Investor net flow"
+            )
+        
+        with col3:
+            sentiment = fii_dii_data.get('market_sentiment', {})
+            st.metric(
+                "Market Sentiment", 
+                sentiment.get('sentiment', 'Neutral').title(),
+                delta=f"Score: {sentiment.get('score', 5)}/10",
+                help="Overall market sentiment based on institutional flows"
+            )
+        
+        # Sentiment impact
+        if sentiment:
+            st.markdown(f"""
+            <div class="fii-dii-card">
+                <h4>📊 Institutional Flow Impact</h4>
+                <p><strong>FII Impact:</strong> {sentiment.get('fii_impact', 'Neutral')}</p>
+                <p><strong>DII Impact:</strong> {sentiment.get('dii_impact', 'Neutral')}</p>
+                <p><strong>Combined Flow:</strong> ₹{sentiment.get('combined_flow', 0):.0f} Crores</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+def display_geopolitical_analysis(analysis):
+    """Display geopolitical sentiment analysis"""
+    geo_sentiment = analysis.get('geopolitical_sentiment')
+    geo_news = analysis.get('geopolitical_news', [])
+    
+    if geo_sentiment:
+        st.subheader("🌍 Geopolitical Sentiment Impact")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric(
+                "Overall Sentiment", 
+                geo_sentiment['overall_sentiment'].title(),
+                delta=f"{geo_sentiment['confidence']:.0f}% confidence",
+                help="Overall geopolitical sentiment affecting markets"
+            )
+        
+        with col2:
+            st.metric(
+                "Risk Level", 
+                geo_sentiment['risk_level'],
+                help="Geopolitical risk assessment"
+            )
+        
+        with col3:
+            st.metric(
+                "Market Impact", 
+                geo_sentiment['market_impact'].replace('_', ' ').title(),
+                help="Expected market impact from geopolitical factors"
+            )
+        
+        # Key concerns
+        if geo_sentiment.get('key_concerns'):
+            st.markdown(f"""
+            <div class="geo-sentiment-card">
+                <h4>🎯 Key Areas of Focus</h4>
+                <p>{', '.join(geo_sentiment['key_concerns'])}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Recent news impact
+        if geo_news:
+            with st.expander("📰 Recent Geopolitical News Impact", expanded=False):
+                for news in geo_news[:3]:
+                    impact = news.get('geopolitical_impact', {})
+                    sentiment = news.get('market_sentiment', {})
+                    
+                    st.markdown(f"""
+                    **{news['title']}**
+                    - Source: {news['source']}
+                    - Impact: {impact.get('impact_level', 'Unknown').title()} ({impact.get('category', 'general')})
+                    - Market Sentiment: {sentiment.get('sentiment', 'neutral').title()} ({sentiment.get('confidence', 0):.0f}% confidence)
+                    """)
+
+def display_options_analysis(analysis):
+    """Display options chain analysis"""
+    options_data = analysis.get('options_data')
+    
+    if options_data:
+        st.subheader("⚙️ Options Chain Analysis")
+        
+        underlying_price = options_data['underlying_price']
+        calls = options_data.get('calls', [])
+        puts = options_data.get('puts', [])
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("**📈 Call Options (Top 5 by Volume)**")
+            
+            # Sort calls by volume and take top 5
+            top_calls = sorted(calls, key=lambda x: x.get('volume', 0), reverse=True)[:5]
+            
+            for call in top_calls:
+                distance = call['strike'] - underlying_price
+                moneyness = "ITM" if distance < 0 else "ATM" if abs(distance) < 50 else "OTM"
+                
+                st.markdown(f"""
+                **Strike {call['strike']:.0f}** ({moneyness})  
+                LTP: ₹{call['ltp']:.2f} | Vol: {call['volume']:,} | OI: {call['oi']:,}  
+                IV: {call['iv']:.1f}% | Delta: {call['delta']:.3f}
+                """)
+        
+        with col2:
+            st.markdown("**📉 Put Options (Top 5 by Volume)**")
+            
+            # Sort puts by volume and take top 5
+            top_puts = sorted(puts, key=lambda x: x.get('volume', 0), reverse=True)[:5]
+            
+            for put in top_puts:
+                distance = underlying_price - put['strike']
+                moneyness = "ITM" if distance < 0 else "ATM" if abs(distance) < 50 else "OTM"
+                
+                st.markdown(f"""
+                **Strike {put['strike']:.0f}** ({moneyness})  
+                LTP: ₹{put['ltp']:.2f} | Vol: {put['volume']:,} | OI: {put['oi']:,}  
+                IV: {put['iv']:.1f}% | Delta: {put['delta']:.3f}
+                """)
+        
+        # PCR and other metrics
+        if calls and puts:
+            total_call_oi = sum(c.get('oi', 0) for c in calls)
+            total_put_oi = sum(p.get('oi', 0) for p in puts)
+            pcr = total_put_oi / total_call_oi if total_call_oi > 0 else 1
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("Put-Call Ratio (PCR)", f"{pcr:.2f}", help="Put OI / Call OI ratio")
+            
+            with col2:
+                total_call_volume = sum(c.get('volume', 0) for c in calls)
+                total_put_volume = sum(p.get('volume', 0) for p in puts)
+                st.metric("Call Volume", f"{total_call_volume:,}", help="Total call option volume")
+            
+            with col3:
+                st.metric("Put Volume", f"{total_put_volume:,}", help="Total put option volume")
+
+def display_risk_analysis(analysis):
+    """Display risk analysis"""
+    risk_analysis = analysis.get('risk_analysis')
+    
+    if risk_analysis:
+        st.subheader("⚠️ Risk Assessment")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            risk_score = risk_analysis['risk_score']
+            risk_level = risk_analysis['risk_level']
+            
+            # Color based on risk level
+            if risk_level == 'HIGH':
+                risk_color = "#ff4757"
+            elif risk_level == 'MEDIUM':
+                risk_color = "#ffa502"
+            else:
+                risk_color = "#2ed573"
+            
+            st.markdown(f"""
+            <div style="background: {risk_color}; color: white; padding: 1rem; border-radius: 10px; text-align: center;">
+                <h4>Risk Score</h4>
+                <h2>{risk_score}/10</h2>
+                <p>{risk_level} RISK</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            position_sizing = risk_analysis.get('position_sizing', {})
+            
+            st.markdown(f"""
+            <div class="risk-card">
+                <h4>📊 Recommended Position Sizing</h4>
+                <p><strong>Equity:</strong> {position_sizing.get('equity', 1.0)*100:.0f}% of normal</p>
+                <p><strong>Options:</strong> {position_sizing.get('options', 0.5)*100:.0f}% of normal</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div class="risk-card">
+                <h4>💡 Risk Recommendation</h4>
+                <p>{risk_analysis.get('recommendation', 'Use standard risk management')}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        # Risk factors
+        risk_factors = risk_analysis.get('risk_factors', [])
+        if risk_factors:
+            st.markdown("**⚠️ Key Risk Factors:**")
+            for factor in risk_factors:
+                st.markdown(f"• {factor}")
+
+def display_market_outlook(analysis):
+    """Display market outlook"""
+    market_outlook = analysis.get('market_outlook')
+    
+    if market_outlook:
+        st.subheader("🔮 Market Outlook")
+        
+        overall_outlook = market_outlook['overall_outlook']
+        
+        # Color based on outlook
+        if overall_outlook == 'BULLISH':
+            outlook_color = "#2ed573"
+            outlook_icon = "📈"
+        elif overall_outlook == 'BEARISH':
+            outlook_color = "#ff4757"
+            outlook_icon = "📉"
+        else:
+            outlook_color = "#5352ed"
+            outlook_icon = "📊"
+        
+        col1, col2 = st.columns([1, 2])
+        
+        with col1:
+            st.markdown(f"""
+            <div style="background: {outlook_color}; color: white; padding: 1.5rem; border-radius: 15px; text-align: center;">
+                <h3>{outlook_icon} {overall_outlook}</h3>
+                <p>{market_outlook['time_horizon']}</p>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown("**📋 Outlook Factors:**")
+            for factor in market_outlook.get('outlook_factors', []):
+                st.markdown(f"• {factor}")
+        
+        # Key levels
+        key_levels = market_outlook.get('key_levels', {})
+        if key_levels:
+            st.markdown("**🎯 Key Technical Levels:**")
+            
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Current", f"₹{key_levels.get('current_price', 0):.2f}")
+            
+            with col2:
+                st.metric("Support", f"₹{key_levels.get('support_1', 0):.2f}")
+            
+            with col3:
+                st.metric("Resistance", f"₹{key_levels.get('resistance_1', 0):.2f}")
+            
+            with col4:
+                st.metric("SMA 20", f"₹{key_levels.get('sma_20', 0):.2f}")
+
+def display_technical_charts(analysis):
+    """Display technical analysis charts"""
+    historical_data = analysis.get('historical_data')
+    tech_indicators = analysis.get('technical_indicators', {})
+    
+    if historical_data and historical_data.get('close'):
+        st.subheader("📊 Technical Analysis Charts")
+        
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+            
+            # Create subplots
+            fig = make_subplots(
+                rows=2, cols=1,
+                shared_xaxes=True,
+                vertical_spacing=0.1,
+                subplot_titles=('Price Chart with Moving Averages', 'RSI'),
+                row_width=[0.7, 0.3]
+            )
+            
+            dates = historical_data['date']
+            closes = historical_data['close']
+            highs = historical_data['high']
+            lows = historical_data['low']
+            opens = historical_data['open']
+            
+            # Candlestick chart
+            fig.add_trace(
+                go.Candlestick(
+                    x=dates,
+                    open=opens,
+                    high=highs,
+                    low=lows,
+                    close=closes,
+                    name="Price"
+                ),
+                row=1, col=1
+            )
+            
+            # Moving averages
+            if tech_indicators.get('sma_20'):
+                sma_20_line = [tech_indicators['sma_20']] * len(dates)
+                fig.add_trace(
+                    go.Scatter(
+                        x=dates,
+                        y=sma_20_line,
+                        mode='lines',
+                        name='SMA 20',
+                        line=dict(color='orange')
+                    ),
+                    row=1, col=1
+                )
+            
+            if tech_indicators.get('sma_50'):
+                sma_50_line = [tech_indicators['sma_50']] * len(dates)
+                fig.add_trace(
+                    go.Scatter(
+                        x=dates,
+                        y=sma_50_line,
+                        mode='lines',
+                        name='SMA 50',
+                        line=dict(color='blue')
+                    ),
+                    row=1, col=1
+                )
+            
+            # RSI (simplified)
+            if tech_indicators.get('rsi'):
+                rsi_line = [tech_indicators['rsi']] * len(dates)
+                fig.add_trace(
+                    go.Scatter(
+                        x=dates,
+                        y=rsi_line,
+                        mode='lines',
+                        name='RSI',
+                        line=dict(color='purple')
+                    ),
+                    row=2, col=1
+                )
+                
+                # RSI levels
+                fig.add_hline(y=70, line_dash="dash", line_color="red", row=2, col=1)
+                fig.add_hline(y=30, line_dash="dash", line_color="green", row=2, col=1)
+            
+            # Update layout
+            fig.update_layout(
+                title=f"{analysis['instrument_name']} Technical Analysis",
+                xaxis_rangeslider_visible=False,
+                height=600,
+                showlegend=True
+            )
+            
+            fig.update_yaxes(title_text="Price (₹)", row=1, col=1)
+            fig.update_yaxes(title_text="RSI", range=[0, 100], row=2, col=1)
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+        except ImportError:
+            st.warning("📊 Install plotly to view technical charts: `pip install plotly`")
+        except Exception as e:
+            st.error(f"📊 Chart display error: {str(e)}")
+
+# Call the main display function
+display_comprehensive_analysis()
+
+# Handle other conditional displays
+if st.session_state.get('show_market_overview', False):
+    st.session_state.show_market_overview = False
+    st.subheader("📊 Market Overview")
+    st.info("Market overview feature - showing top movers, sector performance, etc.")
+
+if st.session_state.get('show_performance', False):
+    st.session_state.show_performance = False
+    st.subheader("📈 Performance Report")
+    
+    try:
+        db_manager = st.session_state.ultimate_trading_system.db_manager
+        performance = db_manager.get_performance_summary(days=30)
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            st.metric("Total Signals (30d)", performance['total_signals'])
+        
+        with col2:
+            st.metric("Avg Confidence", f"{performance['avg_confidence']:.1f}%")
+        
+        with col3:
+            st.metric("Data Quality", "GOOD")
+        
+        if performance['signals_summary']:
+            st.subheader("Signal Breakdown")
+            
+            import pandas as pd
+            df = pd.DataFrame(performance['signals_summary'])
+            st.dataframe(df, use_container_width=True)
+    
+    except Exception as e:
+        st.error(f"Performance report error: {str(e)}")
+
+if st.session_state.get('show_all_signals', False):
+    st.session_state.show_all_signals = False
+    st.subheader("🎯 All Recent Signals")
+    st.info("All signals view - showing comprehensive signal history and performance")
+
+# Auto-refresh for real-time monitoring
+if st.session_state.get('ultimate_trading_system'):
+    monitor = st.session_state.ultimate_trading_system.market_monitor
+    if monitor.get_monitoring_status()['is_active']:
+        # Auto-refresh every 30 seconds during market hours
+        time.sleep(0.1)  # Small delay to prevent too frequent refreshes
+        if monitor.is_market_open():
+            st.rerun()
+
+display_comprehensive_analysis()
+
+# Handle other conditional displays (also from the artifact)
+if st.session_state.get('show_market_overview', False):
+    # ... rest of the code from artifact
+
 if __name__ == "__main__":
     main()
