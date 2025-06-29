@@ -2684,72 +2684,157 @@ def main():
                     
                     st.plotly_chart(fig, use_container_width=True)
             
-            with tab3:
-                st.subheader("💰 FII/DII Flow Analysis")
-                
-                if analysis['fii_dii_data']:
-                    fii_dii = analysis['fii_dii_data']
-                    
-                    st.markdown(f"""
-                    <div class="fii-dii-card">
-                        <h3>🌍 Foreign Institutional Investors (FII)</h3>
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0;">
-                            <div><strong>Buy:</strong> ₹{fii_dii['FII']['buy']:.0f} Cr</div>
-                            <div><strong>Sell:</strong> ₹{fii_dii['FII']['sell']:.0f} Cr</div>
-                            <div><strong>Net:</strong> ₹{fii_dii['FII']['net']:+.0f} Cr</div>
-                        </div>
-                        
-                        <h3>🏠 Domestic Institutional Investors (DII)</h3>
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0;">
-                            <div><strong>Buy:</strong> ₹{fii_dii['DII']['buy']:.0f} Cr</div>
-                            <div><strong>Sell:</strong> ₹{fii_dii['DII']['sell']:.0f} Cr</div>
-                            <div><strong>Net:</strong> ₹{fii_dii['DII']['net']:+.0f} Cr</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Market sentiment from FII/DII
-                    if 'market_sentiment' in fii_dii:
-                        sentiment_data = fii_dii['market_sentiment']
-                        
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("📊 Market Sentiment", sentiment_data['sentiment'])
-                        with col2:
-                            st.metric("💪 Sentiment Score", f"{sentiment_data['score']}/10")
-                        with col3:
-                            combined_flow = fii_dii['FII']['net'] + fii_dii['DII']['net']
-                            st.metric("🌊 Combined Flow", f"₹{combined_flow:+.0f} Cr")
-                        
-                        # Impact analysis
-                        st.subheader("📈 Flow Impact Analysis")
-                        
-                        fii_impact = "🟢 Positive" if fii_dii['FII']['net'] > 0 else "🔴 Negative" if fii_dii['FII']['net'] < 0 else "🟡 Neutral"
-                        dii_impact = "🟢 Positive" if fii_dii['DII']['net'] > 0 else "🔴 Negative" if fii_dii['DII']['net'] < 0 else "🟡 Neutral"
-                        
-                        st.write(f"**FII Impact:** {fii_impact}")
-                        st.write(f"**DII Impact:** {dii_impact}")
-                        st.write(f"**Overall:** {sentiment_data['sentiment']} ({sentiment_data['score']}/10)")
-                        
-                        # Investment insights
-                        st.subheader("💡 Investment Insights")
-                        
-                        if fii_dii['FII']['net'] > 500:
-                            st.success("💰 Strong FII inflows indicate positive global sentiment towards Indian markets")
-                        elif fii_dii['FII']['net'] < -500:
-                            st.warning("⚠️ Heavy FII outflows may indicate risk-off sentiment or global factors")
-                        
-                        if fii_dii['DII']['net'] > 300:
-                            st.success("🏠 Strong DII buying shows domestic institutional confidence")
-                        elif fii_dii['DII']['net'] < -200:
-                            st.warning("📉 DII selling may indicate concerns about valuations or fundamentals")
-                        
-                        # Counter-balancing effect
-                        if fii_dii['FII']['net'] < 0 and fii_dii['DII']['net'] > abs(fii_dii['FII']['net'] * 0.5):
-                            st.info("⚖️ DII buying is partially offsetting FII selling - market stabilization effect")
-                
+            # Find this section in your main() function under tab3 (FII/DII Analysis)
+# Replace the HTML display part with this corrected version:
+
+with tab3:
+    st.subheader("💰 FII/DII Flow Analysis")
+    
+    if analysis['fii_dii_data']:
+        fii_dii = analysis['fii_dii_data']
+        
+        # FIXED: Proper column layout instead of HTML
+        st.markdown("### 🌍 Foreign Institutional Investors (FII)")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("💰 Buy", f"₹{fii_dii['FII']['buy']:.0f} Cr")
+        with col2:
+            st.metric("💸 Sell", f"₹{fii_dii['FII']['sell']:.0f} Cr")
+        with col3:
+            fii_net = fii_dii['FII']['net']
+            st.metric("📊 Net", f"₹{fii_net:+.0f} Cr", delta=f"{fii_net:+.0f}")
+        
+        st.markdown("### 🏠 Domestic Institutional Investors (DII)")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("💰 Buy", f"₹{fii_dii['DII']['buy']:.0f} Cr")
+        with col2:
+            st.metric("💸 Sell", f"₹{fii_dii['DII']['sell']:.0f} Cr")
+        with col3:
+            dii_net = fii_dii['DII']['net']
+            st.metric("📊 Net", f"₹{dii_net:+.0f} Cr", delta=f"{dii_net:+.0f}")
+        
+        # Market sentiment analysis
+        if 'market_sentiment' in fii_dii:
+            sentiment_data = fii_dii['market_sentiment']
+            
+            st.markdown("---")
+            st.subheader("📈 Market Sentiment Analysis")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                sentiment = sentiment_data['sentiment']
+                if sentiment == "Very Bullish" or sentiment == "Bullish":
+                    st.success(f"📊 Market Sentiment: **{sentiment}**")
+                elif sentiment == "Very Bearish" or sentiment == "Bearish":
+                    st.error(f"📊 Market Sentiment: **{sentiment}**")
                 else:
-                    st.info("📊 FII/DII data not available. Using alternative sentiment indicators.")
+                    st.info(f"📊 Market Sentiment: **{sentiment}**")
+            
+            with col2:
+                score = sentiment_data['score']
+                st.metric("💪 Sentiment Score", f"{score}/10")
+            
+            with col3:
+                combined_flow = fii_dii['FII']['net'] + fii_dii['DII']['net']
+                st.metric("🌊 Combined Flow", f"₹{combined_flow:+.0f} Cr")
+            
+            # Flow impact analysis
+            st.subheader("📈 Flow Impact Analysis")
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                fii_impact = sentiment_data.get('fii_impact', 'Neutral')
+                if fii_impact == "Positive":
+                    st.success(f"🌍 **FII Impact:** {fii_impact}")
+                elif fii_impact == "Negative":
+                    st.error(f"🌍 **FII Impact:** {fii_impact}")
+                else:
+                    st.info(f"🌍 **FII Impact:** {fii_impact}")
+            
+            with col2:
+                dii_impact = sentiment_data.get('dii_impact', 'Neutral')
+                if dii_impact == "Positive":
+                    st.success(f"🏠 **DII Impact:** {dii_impact}")
+                elif dii_impact == "Negative":
+                    st.error(f"🏠 **DII Impact:** {dii_impact}")
+                else:
+                    st.info(f"🏠 **DII Impact:** {dii_impact}")
+            
+            # Investment insights
+            st.subheader("💡 Investment Insights")
+            
+            fii_net = fii_dii['FII']['net']
+            dii_net = fii_dii['DII']['net']
+            
+            if fii_net > 500:
+                st.success("💰 **Strong FII Inflows:** Positive global sentiment towards Indian markets")
+            elif fii_net < -500:
+                st.warning("⚠️ **Heavy FII Outflows:** Risk-off sentiment or global factors affecting flows")
+            elif fii_net > 0:
+                st.info("📈 **Moderate FII Buying:** Cautious positive sentiment")
+            else:
+                st.info("📉 **FII Selling:** Some profit booking or risk concerns")
+            
+            if dii_net > 300:
+                st.success("🏠 **Strong DII Buying:** Domestic institutional confidence high")
+            elif dii_net < -200:
+                st.warning("📉 **DII Selling:** Concerns about valuations or fundamentals")
+            elif dii_net > 0:
+                st.info("📈 **Moderate DII Buying:** Steady domestic support")
+            else:
+                st.info("📊 **DII Neutral:** Balanced domestic institutional activity")
+            
+            # Counter-balancing effect analysis
+            if fii_net < 0 and dii_net > abs(fii_net * 0.5):
+                st.info("⚖️ **Market Stabilization:** DII buying is offsetting FII selling pressure")
+            elif fii_net > 0 and dii_net > 0:
+                st.success("🚀 **Institutional Alignment:** Both FII and DII are buying - strong bullish signal")
+            elif fii_net < 0 and dii_net < 0:
+                st.error("📉 **Institutional Exit:** Both FII and DII selling - bearish pressure")
+        
+        # FII/DII Flow Chart
+        st.subheader("📊 Flow Visualization")
+        
+        # Create a simple bar chart
+        flow_data = pd.DataFrame({
+            'Investor Type': ['FII', 'DII'],
+            'Net Flow (₹ Cr)': [fii_dii['FII']['net'], fii_dii['DII']['net']],
+            'Buy (₹ Cr)': [fii_dii['FII']['buy'], fii_dii['DII']['buy']],
+            'Sell (₹ Cr)': [fii_dii['FII']['sell'], fii_dii['DII']['sell']]
+        })
+        
+        # Net flow chart
+        fig = go.Figure()
+        
+        colors = ['red' if x < 0 else 'green' for x in flow_data['Net Flow (₹ Cr)']]
+        
+        fig.add_trace(go.Bar(
+            x=flow_data['Investor Type'],
+            y=flow_data['Net Flow (₹ Cr)'],
+            marker_color=colors,
+            name='Net Flow',
+            text=[f"₹{x:+.0f} Cr" for x in flow_data['Net Flow (₹ Cr)']],
+            textposition='auto'
+        ))
+        
+        fig.update_layout(
+            title="FII/DII Net Flow Comparison",
+            xaxis_title="Investor Type",
+            yaxis_title="Net Flow (₹ Crores)",
+            height=400,
+            showlegend=False
+        )
+        
+        # Add zero line
+        fig.add_hline(y=0, line_dash="dash", line_color="gray")
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+    else:
+        st.info("📊 FII/DII data not available. Using alternative sentiment indicators.")
             
             with tab4:
                 st.subheader("🎲 Options Chain Analysis")
