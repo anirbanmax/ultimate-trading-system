@@ -2772,15 +2772,193 @@ def main():
         </div>
         """, unsafe_allow_html=True)
     
-    # Sidebar
-    with st.sidebar:
-        st.header("🎯 Ultimate Analysis")
+# Replace the incomplete sidebar section at the bottom of your code with this:
 
-# API Testing Section (add this in your sidebar after the monitoring controls)
-st.markdown("---")
-st.subheader("🧪 Data Source Testing")
+# Sidebar
+with st.sidebar:
+    st.header("🎯 Ultimate Analysis")
+    
+    # Instrument selection
+    st.subheader("📈 Select Instrument")
+    selected_instrument = st.selectbox(
+        "Choose Instrument for Analysis:",
+        list(st.session_state.ultimate_trading_system.available_instruments.keys()),
+        index=0,
+        help="Select any stock or index for comprehensive analysis"
+    )
+    
+    # Show instrument details
+    instrument_info = st.session_state.ultimate_trading_system.available_instruments[selected_instrument]
+    
+    with st.container():
+        st.markdown("**📊 Instrument Details:**")
+        st.write(f"**Type:** {instrument_info['type']}")
+        st.write(f"**Symbol:** {instrument_info['symbol']}")
+        options_available = "✅ Yes" if instrument_info.get('options') else "❌ No"
+        st.write(f"**Options Available:** {options_available}")
+    
+    st.markdown("---")
+    
+    # Analysis controls
+    st.subheader("🚀 Analysis Controls")
+    
+    if st.button("🎯 Complete Analysis", type="primary", use_container_width=True):
+        with st.spinner(f"🔍 Analyzing {selected_instrument} with all advanced features..."):
+            try:
+                comprehensive_analysis = st.session_state.ultimate_trading_system.get_comprehensive_analysis(selected_instrument)
+                st.session_state.latest_comprehensive_analysis = comprehensive_analysis
+                st.success(f"✅ Analysis complete for {selected_instrument}!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Analysis failed: {str(e)}")
+    
+    # Quick test buttons
+    if st.button("🧪 Test Data Sources", use_container_width=True):
+        st.session_state.show_data_test = True
+        st.rerun()
+    
+    if st.button("🔑 Test Authentication", use_container_width=True):
+        st.session_state.show_auth_test = True
+        st.rerun()
+    
+    st.markdown("---")
+    
+    # Real-time monitoring controls
+    st.subheader("📡 Live Monitoring")
+    
+    monitor = st.session_state.ultimate_trading_system.market_monitor
+    status = monitor.get_monitoring_status()
+    
+    if status['is_active']:
+        st.success("🟢 Monitoring: ACTIVE")
+        if st.button("⏹️ Stop Monitoring", use_container_width=True):
+            monitor.stop_monitoring()
+            st.info("📴 Monitoring stopped")
+            time.sleep(1)
+            st.rerun()
+    else:
+        st.info("⚪ Monitoring: INACTIVE")
+        if st.button("▶️ Start Live Monitoring", use_container_width=True):
+            # Monitor top 5 instruments
+            symbols = [info['symbol'] for info in 
+                      list(st.session_state.ultimate_trading_system.available_instruments.values())[:5]]
+            monitor.start_monitoring(symbols, update_interval=30)
+            st.success("✅ Live monitoring started!")
+            time.sleep(1)
+            st.rerun()
+    
+    # Market status
+    market_open = monitor.is_market_open()
+    if market_open:
+        st.success("🟢 Market: OPEN")
+    else:
+        st.warning("🟡 Market: CLOSED")
+    
+    if status.get('last_update'):
+        st.write(f"**Last Update:** {status['last_update'].strftime('%H:%M:%S')}")
+    
+    st.markdown("---")
+    
+    # Axis Direct Authentication Status
+    st.subheader("⚡ Axis Direct Status")
+    
+    axis_api = st.session_state.ultimate_trading_system.data_aggregator.axis_api
+    auth_status = axis_api.get_authentication_status()
+    
+    if auth_status['authenticated']:
+        st.success("✅ Authenticated")
+        st.write(f"**Client:** {auth_status['client_code']}")
+        st.write("**Data:** Real-time")
+        
+        if st.button("🔓 Logout", use_container_width=True):
+            axis_api.logout()
+            if 'axis_authenticated' in st.session_state:
+                st.session_state.axis_authenticated = False
+            if 'axis_credentials' in st.session_state:
+                del st.session_state.axis_credentials
+            st.success("👋 Logged out")
+            st.rerun()
+    else:
+        st.warning("⚠️ Not Authenticated")
+        st.write("**Data:** Delayed (15-20 min)")
+        
+        if st.button("🔐 Login to Axis Direct", use_container_width=True):
+            st.session_state.show_axis_login = True
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # Telegram Alerts Status
+    st.subheader("📱 Telegram Alerts")
+    
+    if 'telegram' in st.session_state:
+        st.success("✅ Connected")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("📤 Test", use_container_width=True):
+                telegram = st.session_state.telegram
+                success = telegram.send_message(f"📊 Test from Trading System\n\nTime: {datetime.now().strftime('%H:%M:%S')}")
+                if success:
+                    st.success("✅ Sent!")
+                else:
+                    st.error("❌ Failed")
+        
+        with col2:
+            if st.button("🔄 Reset", use_container_width=True):
+                YOUR_BOT_TOKEN = "7640615729:AAEvkK5UtntcWXpO4h2U9SBY9Y_NBkdSXRE"
+                YOUR_CHAT_ID = "6740102128"
+                telegram = SimpleTelegramAlerts(YOUR_BOT_TOKEN, YOUR_CHAT_ID)
+                st.session_state.telegram = telegram
+                st.success("🔄 Reset!")
+    else:
+        st.error("❌ Not Connected")
+        if st.button("📱 Setup Telegram", use_container_width=True):
+            # Auto-setup with your credentials
+            YOUR_BOT_TOKEN = "7640615729:AAEvkK5UtntcWXpO4h2U9SBY9Y_NBkdSXRE"
+            YOUR_CHAT_ID = "6740102128"
+            try:
+                telegram = SimpleTelegramAlerts(YOUR_BOT_TOKEN, YOUR_CHAT_ID)
+                if telegram.test_connection():
+                    st.session_state.telegram = telegram
+                    st.success("✅ Connected!")
+                    st.rerun()
+                else:
+                    st.error("❌ Connection failed")
+            except Exception as e:
+                st.error(f"❌ Setup failed: {str(e)}")
+    
+    st.markdown("---")
+    
+    # System info
+    st.subheader("🔧 System Info")
+    st.caption(f"**Instruments:** {len(st.session_state.ultimate_trading_system.available_instruments)}")
+    st.caption(f"**Features:** Live Data, FII/DII, Options, Geopolitical")
+    st.caption(f"**Status:** Active")
+    
+    # Quick links
+    st.markdown("---")
+    st.subheader("🔗 Quick Actions")
+    
+    if st.button("📊 Market Overview", use_container_width=True):
+        st.session_state.show_market_overview = True
+        st.rerun()
+    
+    if st.button("📈 Performance Report", use_container_width=True):
+        st.session_state.show_performance = True
+        st.rerun()
+    
+    if st.button("🎯 All Signals", use_container_width=True):
+        st.session_state.show_all_signals = True
+        st.rerun()
 
-if st.button("🔍 Test All Data Sources", use_container_width=True):
+# Also add this to handle the conditional displays in the main area
+# Add this right after the sidebar code:
+
+# Handle conditional displays based on sidebar button clicks
+if st.session_state.get('show_data_test', False):
+    st.session_state.show_data_test = False
+    
     with st.spinner("Testing all data sources for real-time capability..."):
         test_symbol = 'NIFTY'  # Test with NIFTY
         
@@ -2803,10 +2981,7 @@ if st.button("🔍 Test All Data Sources", use_container_width=True):
                 st.write("🎯 **Status: REAL-TIME DATA AVAILABLE**")
             else:
                 st.error("❌ **Axis Direct: FAILED**")
-                st.write("🔧 **Issues:**")
-                st.write("• API key may need authentication")
-                st.write("• Check client code + password requirement")
-                st.write("• Verify API permissions")
+                st.write("🔧 **Issues:** Not authenticated or API limitations")
         except Exception as e:
             st.error("❌ **Axis Direct: ERROR**")
             st.write(f"Error: {str(e)[:100]}...")
@@ -2826,71 +3001,10 @@ if st.button("🔍 Test All Data Sources", use_container_width=True):
         except Exception as e:
             st.error("❌ **Yahoo Finance: ERROR**")
             st.write(f"Error: {str(e)[:100]}...")
-        
-        # Test 3: Current system performance
-        st.write("**3️⃣ Testing Current System...**")
-        try:
-            current_data = aggregator.get_comprehensive_stock_data(test_symbol)
-            
-            if current_data['price_data']:
-                price_data = current_data['price_data']
-                data_source = price_data.get('data_source', 'Unknown')
-                freshness = price_data.get('data_freshness', 'Unknown')
-                
-                if 'REAL-TIME' in freshness:
-                    st.success(f"✅ **System Status: REAL-TIME**")
-                else:
-                    st.warning(f"⚠️ **System Status: DELAYED**")
-                
-                st.write(f"💰 Current Price: ₹{price_data['lastPrice']:.2f}")
-                st.write(f"📊 Active Source: {data_source}")
-                st.write(f"🕐 Data Quality: {freshness}")
-                st.write(f"📈 Technical Indicators: {len(current_data['technical_indicators'])} calculated")
-                
-            else:
-                st.error("❌ **System: NO DATA**")
-        except Exception as e:
-            st.error("❌ **System: ERROR**")
-            st.write(f"Error: {str(e)[:100]}...")
-        
-        # Summary and recommendations
-        st.markdown("---")
-        st.subheader("📋 Summary & Recommendations")
-        
-        # Determine best available source
-        axis_working = False
-        yahoo_working = False
-        
-        try:
-            axis_test = axis_api._get_realtime_data(test_symbol)
-            axis_working = axis_test is not None
-        except:
-            pass
-        
-        try:
-            yahoo_test = axis_api._get_yahoo_data(test_symbol)
-            yahoo_working = yahoo_test is not None
-        except:
-            pass
-        
-        if axis_working:
-            st.success("🏆 **Best Source: Axis Direct (Real-time)**")
-            st.write("✅ You have access to real-time data")
-            st.write("✅ Perfect for day trading and scalping")
-            st.write("✅ Institutional-grade data quality")
-        elif yahoo_working:
-            st.warning("🏆 **Best Source: Yahoo Finance (Delayed)**")
-            st.write("⚠️ Data is 15-20 minutes delayed")
-            st.write("⚠️ Suitable for swing trading and analysis")
-            st.write("⚠️ Not recommended for day trading")
-            st.write("💡 Consider upgrading to real-time data for active trading")
-        else:
-            st.error("❌ **No Data Sources Working**")
-            st.write("🔧 Check internet connection")
-            st.write("🔧 Verify API credentials")
-            st.write("🔧 Try restarting the application")
 
-if st.button("🔑 Test Axis API Authentication", use_container_width=True):
+if st.session_state.get('show_auth_test', False):
+    st.session_state.show_auth_test = False
+    
     with st.spinner("Testing Axis Direct API authentication..."):
         st.subheader("🔐 API Authentication Test")
         
@@ -2903,230 +3017,37 @@ if st.button("🔑 Test Axis API Authentication", use_container_width=True):
         else:
             st.warning("⚠️ API key might be too short")
         
-        st.write("**Testing API Endpoint Access...**")
-        try:
-            # Try to access the base API
-            response = axis_api.session.get(axis_api.base_url, timeout=10)
-            st.success(f"✅ API endpoint accessible (Status: {response.status_code})")
-        except Exception as e:
-            st.error(f"❌ API endpoint not accessible: {str(e)}")
+        st.write("**Testing Authentication Status...**")
+        auth_status = axis_api.get_authentication_status()
         
-        st.write("**Testing Quote API...**")
-        success, result = axis_api.test_api_connection()
-        
-        if success:
-            st.success("✅ API authentication successful!")
-            st.write("🎯 Real-time data access confirmed")
-            if isinstance(result, dict):
-                st.json(result)
-        else:
-            st.error("❌ API authentication failed")
-            st.write("**Possible Solutions:**")
-            st.write("• Verify API key is correct")
-            st.write("• Check if additional authentication required")
-            st.write("• Contact broker for API access verification")
-            st.write("• Ensure account has market data permissions")
+        if auth_status['authenticated']:
+            st.success("✅ Currently authenticated!")
+            st.write(f"**Client Code:** {auth_status['client_code']}")
             
-            st.write("**Error Details:**")
-            st.text(str(result)[:300] + "..." if len(str(result)) > 300 else str(result))
-
-# Current Data Status Display
-if hasattr(st.session_state, 'latest_comprehensive_analysis'):
-    analysis = st.session_state.latest_comprehensive_analysis
-    if analysis and 'price_data' in analysis and analysis['price_data']:
-        price_data = analysis['price_data']
-        
-        st.markdown("---")
-        st.subheader("📊 Current Data Status")
-        
-        data_source = price_data.get('data_source', 'Unknown')
-        freshness = price_data.get('data_freshness', 'Unknown')
-        
-        if 'REAL-TIME' in freshness:
-            st.success(f"✅ {freshness}")
-            st.success("🚀 **Trading Grade: EXCELLENT**")
-        elif 'DELAYED' in freshness:
-            st.warning(f"⚠️ {freshness}")
-            st.warning("📊 **Trading Grade: ANALYSIS ONLY**")
-        else:
-            st.info(f"ℹ️ {freshness}")
-        
-        st.write(f"**Data Source:** {data_source}")
-        if 'delay' in price_data:
-            st.write(f"**Delay:** {price_data['delay']}")
-        if 'timestamp' in price_data:
-            st.write(f"**Last Updated:** {price_data['timestamp'].strftime('%H:%M:%S')}")
-        
-        # Trading suitability
-        if 'REAL-TIME' in freshness:
-            st.write("**✅ Suitable for:** Day trading, Scalping, Options trading")
-        else:
-            st.write("**✅ Suitable for:** Swing trading, Investment analysis, Learning")
-            st.write("**❌ Not suitable for:** Day trading, Quick scalping")
-        
-        # Instrument selection
-        selected_instrument = st.selectbox(
-            "Choose Instrument:",
-            list(st.session_state.ultimate_trading_system.available_instruments.keys()),
-            index=0
-        )
-        
-        instrument_info = st.session_state.ultimate_trading_system.available_instruments[selected_instrument]
-        st.write(f"**Type:** {instrument_info['type']}")
-        st.write(f"**Symbol:** {instrument_info['symbol']}")
-        st.write(f"**Options Available:** {'✅' if instrument_info.get('options') else '❌'}")
-        
-        st.markdown("---")
-        
-        # Analysis controls
-        if st.button("🚀 Complete Analysis", type="primary", use_container_width=True):
-            with st.spinner(f"Analyzing {selected_instrument} with all advanced features..."):
-                comprehensive_analysis = st.session_state.ultimate_trading_system.get_comprehensive_analysis(selected_instrument)
-                st.session_state.latest_comprehensive_analysis = comprehensive_analysis
-        
-        st.markdown("---")
-        
-        # Real-time monitoring controls
-        st.subheader("📡 Real-Time Monitor")
-        
-        if st.button("▶️ Start Live Monitoring", use_container_width=True):
-            symbols = [instrument_info['symbol'] for instrument_info in 
-                      st.session_state.ultimate_trading_system.available_instruments.values()][:5]  # Top 5
-            monitor = st.session_state.ultimate_trading_system.market_monitor
-            monitor.start_monitoring(symbols, update_interval=30)
-            st.success("✅ Live monitoring started!")
-            time.sleep(1)
-            st.rerun()
-        
-        if st.button("⏹️ Stop Monitoring", use_container_width=True):
-            monitor = st.session_state.ultimate_trading_system.market_monitor
-            monitor.stop_monitoring()
-            st.info("📴 Monitoring stopped")
-            time.sleep(1)
-            st.rerun()
-        
-        st.markdown("---")
-        
-        # Feature highlights
-        st.subheader("🔥 Advanced Features")
-        st.write("✅ **Real NSE/Axis Data**")
-        st.write("✅ **FII/DII Flow Analysis**")
-        st.write("✅ **Live Options Chain**")
-        st.write("✅ **Geopolitical Sentiment**")
-        st.write("✅ **Real-time Monitoring**")
-        st.write("✅ **Risk Management**")
-        st.write("✅ **Options Strategies**")
-        st.write("✅ **Foreign Policy Impact**")
-st.markdown("---")
-st.subheader("📱 Telegram Alerts")
-
-# Hard-coded credentials (replace with your actual values)
-YOUR_BOT_TOKEN = "7640615729:AAEvkK5UtntcWXpO4h2U9SBY9Y_NBkdSXRE"  # Telegram Bot token
-YOUR_CHAT_ID = "6740102128"  # Your chat ID
-
-# Auto-connect on app start
-if 'telegram' not in st.session_state:
-    try:
-        telegram = SimpleTelegramAlerts(YOUR_BOT_TOKEN, YOUR_CHAT_ID)
-        # Test connection silently
-        if telegram.test_connection():
-            st.session_state.telegram = telegram
-    except:
-        pass
-
-# Show status and controls
-if 'telegram' in st.session_state:
-    st.success("✅ Telegram: Auto-Connected!")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("📤 Send Test", use_container_width=True):
-            telegram = st.session_state.telegram
-            success = telegram.send_message(f"📊 Test Alert!\n\nTime: {datetime.now().strftime('%H:%M:%S')}")
+            # Test API connection
+            success, result = axis_api.test_api_connection()
             if success:
-                st.success("✅ Sent!")
+                st.success("✅ API connection test successful!")
+                st.write("🎯 Real-time data access confirmed")
             else:
-                st.error("❌ Failed")
-    
-    with col2:
-        if st.button("🔄 Reconnect", use_container_width=True):
-            telegram = SimpleTelegramAlerts(YOUR_BOT_TOKEN, YOUR_CHAT_ID)
-            st.session_state.telegram = telegram
-            st.success("🔄 Reconnected!")
-    
-    # Alert settings
-    st.markdown("**⚙️ Settings**")
-    price_alert_threshold = st.slider("📈 Price Alert (%)", 1.0, 5.0, 2.0, 0.5)
-    signal_alert_threshold = st.slider("🎯 Signal Alert (%)", 70, 95, 80, 5)
-    
-    st.session_state.alert_settings = {
-        'price_threshold': price_alert_threshold,
-        'signal_threshold': signal_alert_threshold
-    }
+                st.error("❌ API connection test failed")
+                st.write(f"Error: {result}")
+        else:
+            st.warning("⚠️ Not authenticated")
+            st.write("Use the login form below to authenticate")
 
-else:
-    st.error("❌ Telegram connection failed")
-    st.write("Check your bot token in the code")
+if st.session_state.get('show_axis_login', False):
+    st.session_state.show_axis_login = False
     
-    # Display alerts if any
-    if 'market_alerts' in st.session_state and st.session_state.market_alerts:
-        st.subheader("🚨 Live Market Alerts")
-        for alert in st.session_state.market_alerts[-5:]:  # Show last 5 alerts
-            alert_class = f"alert-{alert['severity'].lower()}"
-            st.markdown(f"""
-            <div class="{alert_class}">
-                <strong>{alert['symbol']}</strong> - {alert['message']}<br>
-                <small>{alert['timestamp'].strftime('%H:%M:%S')}</small>
-            </div>
-            """, unsafe_allow_html=True)
-
-st.markdown("---")
-st.subheader("⚡ Axis Direct Real-Time")
-
-# Check if already authenticated
-if 'axis_authenticated' not in st.session_state:
-    st.session_state.axis_authenticated = False
-
-if st.session_state.axis_authenticated:
-    st.success("✅ Axis Direct: Connected (Real-time data active)")
+    # Show the login form
+    st.subheader("🔐 Axis Direct Login")
     
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("🔄 Test Connection", use_container_width=True):
-            # Test real-time data
-            try:
-                axis_api = st.session_state.ultimate_trading_system.data_aggregator.axis_api
-                test_data = axis_api.get_stock_data('NIFTY')
-                
-                if test_data and 'Real-time' in test_data.get('data_source', ''):
-                    st.success("✅ Real-time data working!")
-                    st.write(f"💰 NIFTY: ₹{test_data['lastPrice']:.2f}")
-                else:
-                    st.warning("⚠️ Getting delayed data")
-            except Exception as e:
-                st.error(f"❌ Test failed: {str(e)}")
-    
-    with col2:
-        if st.button("🔓 Logout", use_container_width=True):
-            st.session_state.axis_authenticated = False
-            if 'axis_credentials' in st.session_state:
-                del st.session_state.axis_credentials
-            st.rerun()
-    
-    # Show account info
-    if 'axis_credentials' in st.session_state:
-        creds = st.session_state.axis_credentials
-        st.write(f"**Client Code:** {creds['client_code']}")
-        st.write(f"**Status:** Real-time data enabled")
-
-else:
-    # Login form
-    with st.form("axis_login"):
-        st.write("**🔐 Login with your Axis Direct credentials**")
+    with st.form("axis_login_form"):
+        st.write("**Enter your Axis Direct trading credentials:**")
         
         client_code = st.text_input(
             "👤 Client Code", 
-            placeholder="Your trading account client code",
+            placeholder="Your trading account number",
             help="This is your Axis Direct trading account number"
         )
         
@@ -3139,12 +3060,10 @@ else:
         
         totp = st.text_input(
             "🔐 TOTP (if enabled)", 
-            placeholder="6-digit code from authenticator app",
+            placeholder="6-digit code",
             help="Leave empty if you don't have 2FA enabled",
             max_chars=6
         )
-        
-        save_session = st.checkbox("💾 Keep me logged in this session", value=True)
         
         login_submitted = st.form_submit_button("🚀 Connect to Axis Direct", use_container_width=True)
         
@@ -3152,647 +3071,26 @@ else:
             if client_code and password:
                 with st.spinner("🔐 Authenticating with Axis Direct..."):
                     try:
-                        # Get the axis API instance
                         axis_api = st.session_state.ultimate_trading_system.data_aggregator.axis_api
-                        
-                        # Attempt authentication
                         success = axis_api.authenticate(client_code, password, totp)
                         
                         if success:
                             st.success("✅ Successfully connected to Axis Direct!")
                             st.success("🚀 Real-time data is now active!")
-                            
-                            # Save authentication state
                             st.session_state.axis_authenticated = True
-                            
-                            if save_session:
-                                st.session_state.axis_credentials = {
-                                    'client_code': client_code,
-                                    'password': password,
-                                    'totp': totp
-                                }
-                            
-                            # Test real-time data immediately
-                            test_data = axis_api.get_stock_data('NIFTY')
-                            if test_data:
-                                st.write(f"✅ **Live NIFTY:** ₹{test_data['lastPrice']:.2f} ({test_data['pChange']:+.2f}%)")
-                                if 'Real-time' in test_data.get('data_source', ''):
-                                    st.write("🔥 **Data Status:** Real-time (< 1 second delay)")
-                                else:
-                                    st.write("⚠️ **Data Status:** Still using delayed data")
-                            
                             st.balloons()
                             time.sleep(2)
                             st.rerun()
-                            
                         else:
                             st.error("❌ Authentication failed")
                             st.write("**Common issues:**")
                             st.write("• Wrong client code or password")
                             st.write("• TOTP required but not provided")
                             st.write("• Account not enabled for API access")
-                            st.write("• API key permissions insufficient")
-                            
                     except Exception as e:
                         st.error(f"❌ Connection error: {str(e)}")
-                        st.write("**Troubleshooting:**")
-                        st.write("• Verify your Axis Direct account details")
-                        st.write("• Check if API access is enabled")
-                        st.write("• Contact Axis Direct support for API issues")
             else:
                 st.warning("⚠️ Please enter both client code and password")
-    
-    # Help section
-    with st.expander("❓ Where to find your credentials"):
-        st.markdown("""
-        **👤 Client Code:**
-        - This is your Axis Direct trading account number
-        - Usually 6-8 digits
-        - Found in your account statements or login page
-        
-        **🔒 Trading Password:**
-        - Your regular Axis Direct login password
-        - Same password you use for web/mobile trading
-        
-        **🔐 TOTP (if applicable):**
-        - 6-digit code from Google Authenticator or similar app
-        - Only needed if you have 2FA enabled
-        - Leave empty if you don't use 2FA
-        
-        **🔧 API Access:**
-        - Some accounts may need to enable API access
-        - Contact Axis Direct customer support if needed
-        - Ask them to enable "API trading" for your account
-        """)
-
-# Data source comparison
-st.markdown("---")
-st.subheader("📊 Data Source Status")
-
-# Show current data source
-if hasattr(st.session_state, 'latest_comprehensive_analysis'):
-    analysis = st.session_state.latest_comprehensive_analysis
-    if analysis and 'price_data' in analysis and analysis['price_data']:
-        price_data = analysis['price_data']
-        data_source = price_data.get('data_source', 'Unknown')
-        
-        if 'Real-time' in data_source or 'Axis Direct' in data_source:
-            st.success("🟢 **Current Source:** Real-time (Axis Direct)")
-            st.write("✅ Perfect for day trading")
-            st.write("✅ < 1 second delay")
-        else:
-            st.warning("🟡 **Current Source:** Delayed (Yahoo Finance)")
-            st.write("⚠️ 15-20 minute delay")
-            st.write("✅ Good for swing trading")
-        
-        st.write(f"**Last Update:** {price_data.get('timestamp', datetime.now()).strftime('%H:%M:%S')}")
-else:
-    st.info("📊 Run analysis to see current data source")
-
-# Benefits comparison
-col1, col2 = st.columns(2)
-
-with col1:
-    st.markdown("**🟢 Real-time Benefits:**")
-    st.write("• Day trading ready")
-    st.write("• Instant price updates")
-    st.write("• Options trading precision")
-    st.write("• Quick entry/exit timing")
-
-with col2:
-    st.markdown("**🟡 Delayed Data (Free):**")
-    st.write("• Perfect for swing trading")
-    st.write("• Great for analysis")
-    st.write("• Technical indicators work fine")
-    st.write("• No credentials needed")
-    
-    # Main content area
-    if 'latest_comprehensive_analysis' in st.session_state:
-        analysis = st.session_state.latest_comprehensive_analysis
-        
-        if 'error' in analysis:
-            st.error(f"❌ {analysis['error']}")
-        else:
-            # Analysis quality and data sources
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("📊 Analysis Quality", analysis['analysis_quality'])
-            with col2:
-                st.metric("🔗 Data Sources", len(analysis['data_sources']))
-            with col3:
-                st.metric("🎯 Features Analyzed", len(analysis['features_analyzed']))
-            
-            # Data sources badges
-            st.markdown("**🔗 Data Sources Used:**")
-            for source in analysis['data_sources']:
-                st.markdown(f'<span class="feature-badge">{source}</span>', unsafe_allow_html=True)
-            
-          # Create comprehensive tabs
-            tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-                "🎯 Trading Signals", 
-                "📊 Price & Technical", 
-                "💰 FII/DII Analysis", 
-                "🎲 Options Trading", 
-                "🌍 Geopolitical Impact", 
-                "⚠️ Risk Analysis", 
-                "🔮 Market Outlook",
-                "📈 Performance"
-            ])
-            
-            with tab1:
-                st.subheader(f"🎯 Complete Trading Signals for {selected_instrument}")
                 
-                # Equity signals
-                if analysis['equity_signals']:
-                    for signal in analysis['equity_signals']:
-                        st.markdown(f"""
-                        <div class="signal-card">
-                            <h3>🔥 {signal['action']} Signal - EQUITY</h3>
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0;">
-                                <div><strong>Entry Price:</strong> ₹{signal['price']:.2f}</div>
-                                <div><strong>Target:</strong> ₹{signal['target']:.2f}</div>
-                                <div><strong>Stop Loss:</strong> ₹{signal['stop_loss']:.2f}</div>
-                            </div>
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0;">
-                                <div><strong>Confidence:</strong> {signal['confidence']:.0f}%</div>
-                                <div><strong>Risk:Reward:</strong> 1:{signal['risk_reward']:.1f}</div>
-                                <div><strong>Max Loss:</strong> {signal['max_loss_pct']:.1f}%</div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        st.subheader("📝 Signal Reasons:")
-                        for reason in signal['reasons']:
-                            st.write(f"• {reason}")
-                        
-                        st.markdown("---")
-                
-                # Options signals
-                if analysis['options_signals']:
-                    st.subheader("🎲 Options Trading Signals")
-                    for signal in analysis['options_signals']:
-                        st.markdown(f"""
-                        <div class="options-card">
-                            <h3>⚡ {signal['strategy']} Strategy</h3>
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0;">
-                                <div><strong>Strike:</strong> ₹{signal['strike']:.0f}</div>
-                                <div><strong>Premium:</strong> ₹{signal['premium']:.2f}</div>
-                                <div><strong>Target:</strong> ₹{signal['target']:.2f}</div>
-                            </div>
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0;">
-                                <div><strong>Confidence:</strong> {signal['confidence']:.0f}%</div>
-                                <div><strong>Max Profit:</strong> ₹{signal.get('max_profit', signal['premium']):.2f}</div>
-                                <div><strong>Breakeven:</strong> ₹{signal.get('breakeven', signal['strike']):.2f}</div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                        
-                        for reason in signal['reasons']:
-                            st.write(f"• {reason}")
-                
-                if not analysis['equity_signals'] and not analysis['options_signals']:
-                    st.info("📊 No high-quality signals detected. Market conditions may not be favorable for trading.")
-            
-            with tab2:
-                st.subheader(f"📊 Price Data & Technical Analysis for {selected_instrument}")
-                
-                price_data = analysis['price_data']
-                
-                # Current price display
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("💰 Current Price", f"₹{price_data['lastPrice']:.2f}")
-                with col2:
-                    change = price_data['change']
-                    st.metric("📈 Change", f"₹{change:.2f}", delta=f"{change:.2f}")
-                with col3:
-                    pchange = price_data['pChange']
-                    st.metric("📊 Change %", f"{pchange:.2f}%", delta=f"{pchange:.2f}%")
-                with col4:
-                    data_source = price_data.get('data_source', 'Unknown')
-                    if 'Real-time' in data_source or 'Axis Direct' in data_source:
-                        st.success("🟢 Real-time")
-                    elif 'Yahoo' in data_source:
-                        st.warning("🟡 Delayed")
-                    else:
-                        st.info("📊 Data Source")
-                
-                col1, col2, col3, col4 = st.columns(4)
-                with col1:
-                    st.metric("🔓 Open", f"₹{price_data['open']:.2f}")
-                with col2:
-                    st.metric("📈 High", f"₹{price_data['high']:.2f}")
-                with col3:
-                    st.metric("📉 Low", f"₹{price_data['low']:.2f}")
-                with col4:
-                    st.metric("🔒 Prev Close", f"₹{price_data['previousClose']:.2f}")
-                
-                # Technical indicators
-                if analysis['technical_indicators']:
-                    st.subheader("📊 Technical Indicators")
-                    
-                    tech = analysis['technical_indicators']
-                    col1, col2, col3 = st.columns(3)
-                    
-                    with col1:
-                        if 'rsi' in tech:
-                            rsi_color = "red" if tech['rsi'] > 70 else "green" if tech['rsi'] < 30 else "blue"
-                            st.markdown(f"**RSI:** <span style='color: {rsi_color}'>{tech['rsi']:.1f}</span>", unsafe_allow_html=True)
-                        if 'sma_20' in tech:
-                            st.write(f"**SMA 20:** ₹{tech['sma_20']:.2f}")
-                    
-                    with col2:
-                        if 'sma_50' in tech:
-                            st.write(f"**SMA 50:** ₹{tech['sma_50']:.2f}")
-                        if 'support' in tech:
-                            st.write(f"**Support:** ₹{tech['support']:.2f}")
-                    
-                    with col3:
-                        if 'resistance' in tech:
-                            st.write(f"**Resistance:** ₹{tech['resistance']:.2f}")
-                        if 'macd' in tech:
-                            macd_color = "green" if tech['macd'] > tech.get('macd_signal', 0) else "red"
-                            st.markdown(f"**MACD:** <span style='color: {macd_color}'>{'Bullish' if tech['macd'] > tech.get('macd_signal', 0) else 'Bearish'}</span>", unsafe_allow_html=True)
-                
-                # Price chart
-                if analysis['historical_data'] is not None:
-                    st.subheader("📈 Interactive Price Chart")
-                    
-                    hist_data = analysis['historical_data']
-                    
-                    fig = go.Figure()
-                    
-                    # Candlestick chart
-                    fig.add_trace(go.Candlestick(
-                        x=hist_data['date'][-60:],  # Last 60 days
-                        open=hist_data['open'][-60:],
-                        high=hist_data['high'][-60:],
-                        low=hist_data['low'][-60:],
-                        close=hist_data['close'][-60:],
-                        name=selected_instrument,
-                        increasing_line_color='green',
-                        decreasing_line_color='red'
-                    ))
-                    
-                    fig.update_layout(
-                        title=f"{selected_instrument} - Technical Chart",
-                        xaxis_title="Date",
-                        yaxis_title="Price (₹)",
-                        height=600,
-                        showlegend=True,
-                        template="plotly_dark"
-                    )
-                    
-                    st.plotly_chart(fig, use_container_width=True)
-            
-            with tab3:
-                st.subheader("💰 FII/DII Flow Analysis")
-                
-                if analysis['fii_dii_data']:
-                    fii_dii = analysis['fii_dii_data']
-                    
-                    # FII Section
-                    st.markdown("### 🌍 Foreign Institutional Investors (FII)")
-                    
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("💰 Buy", f"₹{fii_dii['FII']['buy']:.0f} Cr")
-                    with col2:
-                        st.metric("💸 Sell", f"₹{fii_dii['FII']['sell']:.0f} Cr")
-                    with col3:
-                        fii_net = fii_dii['FII']['net']
-                        st.metric("📊 Net", f"₹{fii_net:+.0f} Cr", delta=f"{fii_net:+.0f}")
-                    
-                    # DII Section
-                    st.markdown("### 🏠 Domestic Institutional Investors (DII)")
-                    
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("💰 Buy", f"₹{fii_dii['DII']['buy']:.0f} Cr")
-                    with col2:
-                        st.metric("💸 Sell", f"₹{fii_dii['DII']['sell']:.0f} Cr")
-                    with col3:
-                        dii_net = fii_dii['DII']['net']
-                        st.metric("📊 Net", f"₹{dii_net:+.0f} Cr", delta=f"{dii_net:+.0f}")
-                    
-                    # Market sentiment analysis
-                    if 'market_sentiment' in fii_dii:
-                        sentiment_data = fii_dii['market_sentiment']
-                        
-                        st.markdown("---")
-                        st.subheader("📈 Market Sentiment Analysis")
-                        
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            sentiment = sentiment_data['sentiment']
-                            if sentiment in ["Very Bullish", "Bullish"]:
-                                st.success(f"📊 Market Sentiment: **{sentiment}**")
-                            elif sentiment in ["Very Bearish", "Bearish"]:
-                                st.error(f"📊 Market Sentiment: **{sentiment}**")
-                            else:
-                                st.info(f"📊 Market Sentiment: **{sentiment}**")
-                        
-                        with col2:
-                            score = sentiment_data['score']
-                            st.metric("💪 Sentiment Score", f"{score}/10")
-                        
-                        with col3:
-                            combined_flow = fii_dii['FII']['net'] + fii_dii['DII']['net']
-                            st.metric("🌊 Combined Flow", f"₹{combined_flow:+.0f} Cr")
-                        
-                        # Investment insights
-                        st.subheader("💡 Investment Insights")
-                        
-                        fii_net = fii_dii['FII']['net']
-                        dii_net = fii_dii['DII']['net']
-                        
-                        if fii_net > 500:
-                            st.success("💰 **Strong FII Inflows:** Positive global sentiment towards Indian markets")
-                        elif fii_net < -500:
-                            st.warning("⚠️ **Heavy FII Outflows:** Risk-off sentiment or global factors affecting flows")
-                        elif fii_net > 0:
-                            st.info("📈 **Moderate FII Buying:** Cautious positive sentiment")
-                        else:
-                            st.info("📉 **FII Selling:** Some profit booking or risk concerns")
-                        
-                        if dii_net > 300:
-                            st.success("🏠 **Strong DII Buying:** Domestic institutional confidence high")
-                        elif dii_net < -200:
-                            st.warning("📉 **DII Selling:** Concerns about valuations or fundamentals")
-                        elif dii_net > 0:
-                            st.info("📈 **Moderate DII Buying:** Steady domestic support")
-                        else:
-                            st.info("📊 **DII Neutral:** Balanced domestic institutional activity")
-                        
-                        # Counter-balancing effect analysis
-                        if fii_net < 0 and dii_net > abs(fii_net * 0.5):
-                            st.info("⚖️ **Market Stabilization:** DII buying is offsetting FII selling pressure")
-                        elif fii_net > 0 and dii_net > 0:
-                            st.success("🚀 **Institutional Alignment:** Both FII and DII are buying - strong bullish signal")
-                        elif fii_net < 0 and dii_net < 0:
-                            st.error("📉 **Institutional Exit:** Both FII and DII selling - bearish pressure")
-                
-                else:
-                    st.info("📊 FII/DII data not available. Using alternative sentiment indicators.")
-            
-            with tab4:
-                st.subheader("🎲 Options Chain Analysis")
-                
-                if analysis['options_data']:
-                    options_data = analysis['options_data']
-                    
-                    # Options overview
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("📊 Underlying Price", f"₹{options_data['underlying_price']:.2f}")
-                    with col2:
-                        st.metric("🔗 Data Source", options_data['data_source'])
-                    with col3:
-                        st.metric("🕐 Updated", options_data['timestamp'].strftime("%H:%M:%S"))
-                    
-                    # Options signals display
-                    if analysis['options_signals']:
-                        st.subheader("⚡ Options Trading Strategies")
-                        
-                        for i, signal in enumerate(analysis['options_signals']):
-                            with st.expander(f"Strategy {i+1}: {signal['strategy']}"):
-                                
-                                col1, col2 = st.columns(2)
-                                with col1:
-                                    st.write(f"**Action:** {signal['action']}")
-                                    st.write(f"**Strike:** ₹{signal['strike']:.0f}")
-                                    st.write(f"**Premium:** ₹{signal['premium']:.2f}")
-                                    st.write(f"**Confidence:** {signal['confidence']:.0f}%")
-                                
-                                with col2:
-                                    st.write(f"**Target:** ₹{signal['target']:.2f}")
-                                    st.write(f"**Stop Loss:** ₹{signal['stop_loss']:.2f}")
-                                    st.write(f"**Max Loss:** ₹{signal.get('max_loss', signal['premium']):.2f}")
-                                    st.write(f"**Breakeven:** ₹{signal.get('breakeven', signal['strike']):.2f}")
-                                
-                                st.write("**Strategy Rationale:**")
-                                for reason in signal['reasons']:
-                                    st.write(f"• {reason}")
-                else:
-                    st.info("🎲 Options data not available for this instrument or instrument doesn't have options.")
-            
-            with tab5:
-                st.subheader("🌍 Geopolitical Impact Analysis")
-                
-                if analysis['geopolitical_sentiment']:
-                    geo_data = analysis['geopolitical_sentiment']
-                    
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("🌍 Overall Sentiment", geo_data['overall_sentiment'].title())
-                    with col2:
-                        st.metric("📊 Confidence", f"{geo_data['confidence']:.0f}%")
-                    with col3:
-                        st.metric("⚠️ Risk Level", geo_data['risk_level'])
-                    
-                    # Key concerns
-                    if geo_data.get('key_concerns'):
-                        st.subheader("⚠️ Key Geopolitical Concerns")
-                        for concern in geo_data['key_concerns']:
-                            st.write(f"• {concern.replace('_', ' ').title()}")
-                
-                # Recent geopolitical news
-                if analysis['geopolitical_news']:
-                    st.subheader("📰 Recent Geopolitical News")
-                    
-                    for news in analysis['geopolitical_news'][:3]:
-                        st.markdown(f"""
-                        **{news['title']}**
-                        
-                        *Source: {news['source']}*
-                        """)
-            
-            with tab6:
-                st.subheader("⚠️ Comprehensive Risk Analysis")
-                
-                if analysis['risk_analysis']:
-                    risk_data = analysis['risk_analysis']
-                    
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("⚠️ Risk Score", f"{risk_data['risk_score']}/10")
-                    with col2:
-                        st.metric("📊 Risk Level", risk_data['risk_level'])
-                    with col3:
-                        if 'position_sizing' in risk_data:
-                            equity_size = risk_data['position_sizing']['equity']
-                            st.metric("📈 Position Size", f"{equity_size*100:.0f}%")
-                    
-                    # Risk factors
-                    st.subheader("🔍 Identified Risk Factors")
-                    for factor in risk_data['risk_factors']:
-                        st.write(f"• {factor}")
-                    
-                    # Risk management recommendation
-                    st.info(f"💡 **Recommendation:** {risk_data['recommendation']}")
-            
-            with tab7:
-                st.subheader("🔮 Market Outlook")
-                
-                if analysis['market_outlook']:
-                    outlook_data = analysis['market_outlook']
-                    
-                    # Overall outlook
-                    outlook_color = {
-                        'BULLISH': 'green',
-                        'BEARISH': 'red', 
-                        'NEUTRAL': 'orange'
-                    }.get(outlook_data['overall_outlook'], 'blue')
-                    
-                    if outlook_data['overall_outlook'] == 'BULLISH':
-                        st.success(f"🔮 Market Outlook: **{outlook_data['overall_outlook']}**")
-                    elif outlook_data['overall_outlook'] == 'BEARISH':
-                        st.error(f"🔮 Market Outlook: **{outlook_data['overall_outlook']}**")
-                    else:
-                        st.info(f"🔮 Market Outlook: **{outlook_data['overall_outlook']}**")
-                    
-                    st.write(f"**Time Horizon:** {outlook_data['time_horizon']}")
-                    
-                    # Outlook factors
-                    st.subheader("📊 Analysis Factors")
-                    for factor in outlook_data['outlook_factors']:
-                        st.write(f"• {factor}")
-            
-            with tab8:
-                st.subheader("📈 Trading Performance & History")
-                
-                # Get performance data
-                performance = st.session_state.ultimate_trading_system.db_manager.get_performance_summary(30)
-                
-                if performance['signals_summary']:
-                    # Signal statistics
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("🎯 Total Signals (30d)", performance['total_signals'])
-                    with col2:
-                        st.metric("💪 Avg Confidence", f"{performance['avg_confidence']:.0f}%")
-                    with col3:
-                        equity_signals = sum(1 for s in performance['signals_summary'] if s['signal_type'] == 'EQUITY')
-                        st.metric("📈 Equity Signals", equity_signals)
-                    
-                    # Signals breakdown
-                    st.subheader("📊 Signal Breakdown")
-                    signals_df = pd.DataFrame(performance['signals_summary'])
-                    st.dataframe(signals_df, use_container_width=True, hide_index=True)
-                else:
-                    st.info("📊 No recent trading signals to display.")
-                
-                # Recent alerts
-                if 'market_alerts' in st.session_state and st.session_state.market_alerts:
-                    st.subheader("🚨 Recent Alerts")
-                    
-                    recent_alerts = st.session_state.market_alerts[-5:]  # Last 5 alerts
-                    for alert in reversed(recent_alerts):
-                        severity_color = {
-                            'HIGH': '#ff4757',
-                            'MEDIUM': '#ffa502',
-                            'LOW': '#70a1ff'
-                        }.get(alert['severity'], '#70a1ff')
-                        
-                        st.markdown(f"""
-                        <div style="border-left: 4px solid {severity_color}; padding: 0.5rem; margin: 0.3rem 0; background: #f8f9fa;">
-                            <strong>{alert['symbol']}</strong> - {alert['message']}<br>
-                            <small>{alert['timestamp'].strftime('%Y-%m-%d %H:%M:%S')}</small>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("📊 No recent alerts. System is monitoring for significant events.")
-    
-    else:
-        # Welcome screen with system capabilities
-        st.markdown("""
-        ## 🚀 Welcome to the Ultimate Trading System
-        
-        Select an instrument from the sidebar and click **"Complete Analysis"** to get:
-        
-        ### 🎯 **Advanced Features**
-        """)
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            **📊 Real-Time Data Analysis**
-            - Live price data from Axis Direct & NSE
-            - Technical indicators on real data
-            - Multi-source data validation
-            
-            **💰 FII/DII Flow Analysis**
-            - Live institutional investor flows
-            - Market sentiment from flow patterns
-            - Investment impact analysis
-            
-            **🎲 Options Trading**
-            - Real-time option chain data
-            - PCR analysis and max pain calculation
-            - Options strategy recommendations
-            
-            **🌍 Geopolitical Impact**
-            - Foreign policy sentiment analysis
-            - Global event impact on markets
-            - Risk assessment from geo events
-            """)
-        
-        with col2:
-            st.markdown("""
-            **⚠️ Risk Management**
-            - Comprehensive risk scoring
-            - Position sizing recommendations
-            - Multi-factor risk analysis
-            
-            **🔮 Market Outlook**
-            - Short to medium-term forecasts
-            - Key support/resistance levels
-            - Market direction indicators
-            
-            **📡 Live Monitoring**
-            - Real-time price alerts
-            - Signal notifications
-            - Market event tracking
-            
-            **📈 Performance Tracking**
-            - Signal accuracy monitoring
-            - FII/DII trend analysis
-            - Historical performance data
-            """)
-        
-        st.markdown("""
-        ### 🏆 **Why This System is Ultimate:**
-        
-        ✅ **100% Real Data** - No simulated or fake data  
-        ✅ **Multiple Data Sources** - Axis Direct, NSE, MoneyControl, Yahoo Finance  
-        ✅ **FII/DII Analysis** - Track institutional money flows  
-        ✅ **Options Trading** - Complete option chain analysis  
-        ✅ **Geopolitical Sentiment** - Foreign policy impact analysis  
-        ✅ **Real-time Monitoring** - Live alerts during market hours  
-        ✅ **Risk Management** - Comprehensive risk assessment  
-        ✅ **Options Strategies** - Bull/Bear/Neutral strategies  
-        
-        ### 🎯 **Perfect for:**
-        - Intraday Trading
-        - Swing Trading  
-        - Options Trading
-        - Risk Management
-        - Market Analysis
-        - Investment Planning
-        """)
-        
-        # System status
-        st.markdown("---")
-        st.subheader("🔧 System Status")
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.success("✅ Axis Direct API: Connected")
-        with col2:
-            st.success("✅ NSE Data: Available")
-        with col3:
-            st.success("✅ All Features: Active")
-
 if __name__ == "__main__":
     main()
