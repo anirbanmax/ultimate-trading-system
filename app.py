@@ -3077,27 +3077,19 @@ try:
     
     st.markdown("---")
     
-    # System info
-    st.subheader("🔧 System Info")
-    st.caption(f"**Instruments:** {len(st.session_state.ultimate_trading_system.available_instruments)}")
-    st.caption(f"**Features:** Live Data, FII/DII, Options, Geopolitical")
-    st.caption(f"**Status:** Active")
-    
-    # Quick links
-    st.markdown("---")
-    st.subheader("🔗 Quick Actions")
-    
-    if st.button("📊 Market Overview", use_container_width=True):
-        st.session_state.show_market_overview = True
-        st.rerun()
-    
-    if st.button("📈 Performance Report", use_container_width=True):
-        st.session_state.show_performance = True
-        st.rerun()
-    
-    if st.button("🎯 All Signals", use_container_width=True):
-        st.session_state.show_all_signals = True
-        st.rerun()
+        # System info
+        st.subheader("🔧 System Info")
+        st.caption(f"**Instruments:** {len(available_instruments)}")
+        st.caption(f"**Features:** Live Data, FII/DII, Options, Geopolitical")
+        try:
+            system_status = "Active" if hasattr(st.session_state.ultimate_trading_system, 'available_instruments') else "Limited"
+            st.caption(f"**Status:** {system_status}")
+        except:
+            st.caption(f"**Status:** Unknown")
+
+except Exception as e:
+    st.error(f"❌ Sidebar error: {str(e)}")
+    logger.error(f"❌ Sidebar error: {str(e)}")
 
 # Handle conditional displays based on sidebar button clicks
 if st.session_state.get('show_data_test', False):
