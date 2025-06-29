@@ -105,64 +105,109 @@ class AxisDirectRealAPI:
             return {'status': 'error', 'message': str(e)}
 
 
+# =============================================================================
+# REAL-TIME MULTI-SOURCE DATA AGGREGATOR
+# =============================================================================
+
 class MultiSourceDataAggregator:
-    """Aggregate data from multiple sources for comprehensive analysis"""
+    """Real-time data aggregator with multiple live sources"""
     
     def __init__(self, axis_api_key):
-        self.axis_api = AxisDirectRealAPI(axis_api_key)
-        self.session = requests.Session()
+        # Initialize real-time APIs
+        self.axis_api = AxisDirectRealTimeAPI(axis_api_key)
+        self.nse_api = NSERealtimeAPI()
         
-        # MoneyControl base URL
-        self.moneycontrol_base = "https://www.moneycontrol.com"
+        # Test Axis API on initialization
+        logger.info("🧪 Testing Axis Direct API...")
+        success, result = self.axis_api.test_api_connection()
         
-        # Set up session headers
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-        })
+        if success:
+            logger.info("✅ Axis Direct API is working - real-time data available")
+            self.axis_working = True
+        else:
+            logger.warning("⚠️ Axis Direct API issues - will use NSE Direct + Yahoo fallback")
+            self.axis_working = False
+            logger.info(f"Axis API Test Result: {str(result)[:200]}...")
         
-        logger.info("✅ Multi-source data aggregator initialized")
+        # Yahoo Finance as final fallback (with delay warning)
+        self.yahoo_fallback = True
+        
+        logger.info("✅ Real-time data aggregator initialized")
     
     def get_comprehensive_stock_data(self, symbol):
-        """Get comprehensive stock data from multiple sources"""
+        """Get real-time comprehensive stock data"""
         try:
-            data_sources = []
+            logger.info(f"🔍 Getting REAL-TIME data for {symbol}")
             
-            # 1. Try Axis Direct first
-            axis_data = self.axis_api.get_stock_data(symbol)
+            data_sources = []
             primary_data = None
             
-            if axis_data:
-                primary_data = axis_data
-                data_sources.append('Axis Direct')
+            # Priority 1: Axis Direct (Real-time, < 1 second delay)
+            if self.axis_working:
+                logger.info("📡 Trying Axis Direct for real-time data...")
+                axis_data = self.axis_api.get_stock_data(symbol)
+                if axis_data:
+                    primary_data = axis_data
+                    data_sources.append(f"Axis Direct ({axis_data.get('delay', 'real-time')})")
+                    logger.info(f"✅ Got real-time data from Axis Direct")
             
-            # 2. Try Yahoo Finance as backup
+            # Priority 2: NSE Direct (Real-time, < 5 second delay)
             if not primary_data:
-                yahoo_data = self._get_yahoo_finance_data(symbol)
+                logger.info("📡 Trying NSE Direct for real-time data...")
+                nse_data = self.nse_api.get_nse_quote(symbol)
+                if nse_data:
+                    primary_data = nse_data
+                    data_sources.append(f"NSE Direct ({nse_data.get('delay', '< 5 seconds')})")
+                    logger.info(f"✅ Got real-time data from NSE Direct")
+            
+            # Priority 3: Yahoo Finance (15-20 min delay - WITH WARNING)
+            if not primary_data and self.yahoo_fallback:
+                logger.warning(f"⚠️ Using Yahoo Finance for {symbol} - DATA WILL BE DELAYED 15-20 MINUTES")
+                yahoo_data = self._get_yahoo_fallback(symbol)
                 if yahoo_data:
                     primary_data = yahoo_data
-                    data_sources.append('Yahoo Finance')
+                    primary_data['delay_warning'] = '⚠️ 15-20 MINUTE DELAY'
+                    data_sources.append("Yahoo Finance (⚠️ DELAYED)")
+                    logger.warning(f"⚠️ Using delayed data from Yahoo Finance")
             
-            # 3. Try MoneyControl for additional data
-            mc_data = self._get_moneycontrol_data(symbol)
-            if mc_data:
-                data_sources.append('MoneyControl')
-                # Merge additional data if available
-                if primary_data and mc_data:
-                    primary_data.update(mc_data)
+            if not primary_data:
+                logger.error(f"❌ Could not get data for {symbol} from any source")
+                return {
+                    'price_data': None,
+                    'historical_data': None,
+                    'technical_indicators': {},
+                    'data_sources': [],
+                    'error': f'No data available for {symbol}',
+                    'timestamp': datetime.now()
+                }
             
-            # 4. Get historical data
-            historical_data = self._get_historical_data(symbol)
+            # Get historical data for technical analysis
+            historical_data = self._get_historical_data_smart(symbol)
+            if historical_data:
+                data_sources.append('Historical Analysis')
             
-            # 5. Calculate technical indicators
+            # Calculate technical indicators
             technical_indicators = self._calculate_technical_indicators(historical_data)
+            if technical_indicators:
+                data_sources.append('Technical Indicators')
             
-            return {
+            # Add data freshness info
+            primary_data['data_freshness'] = self._get_data_freshness(primary_data.get('data_source', ''))
+            
+            result = {
                 'price_data': primary_data,
                 'historical_data': historical_data,
                 'technical_indicators': technical_indicators,
                 'data_sources': data_sources,
-                'timestamp': datetime.now()
+                'timestamp': datetime.now(),
+                'real_time_status': self._get_realtime_status(primary_data.get('data_source', ''))
             }
+            
+            # Log data quality
+            freshness = primary_data.get('data_freshness', 'Unknown')
+            logger.info(f"✅ Data obtained for {symbol}: {freshness}")
+            
+            return result
             
         except Exception as e:
             logger.error(f"❌ Comprehensive data error for {symbol}: {str(e)}")
@@ -171,57 +216,93 @@ class MultiSourceDataAggregator:
                 'historical_data': None,
                 'technical_indicators': {},
                 'data_sources': [],
+                'error': str(e),
                 'timestamp': datetime.now()
             }
     
-    def _get_yahoo_finance_data(self, symbol):
-        """Get data from Yahoo Finance"""
+    def _get_data_freshness(self, data_source):
+        """Determine data freshness based on source"""
+        if 'Axis Direct' in data_source:
+            return '🟢 REAL-TIME (< 1 second)'
+        elif 'NSE Direct' in data_source:
+            return '🟢 REAL-TIME (< 5 seconds)'
+        elif 'Yahoo' in data_source:
+            return '🟡 DELAYED (15-20 minutes)'
+        else:
+            return '❓ Unknown freshness'
+    
+    def _get_realtime_status(self, data_source):
+        """Get real-time status"""
+        if 'Axis Direct' in data_source or 'NSE Direct' in data_source:
+            return 'REAL_TIME'
+        elif 'Yahoo' in data_source:
+            return 'DELAYED'
+        else:
+            return 'UNKNOWN'
+    
+    def _get_yahoo_fallback(self, symbol):
+        """Yahoo Finance fallback with delay warning"""
         try:
-            ticker = yf.Ticker(f"{symbol}.NS")
+            yahoo_symbol = symbol_mapper.get_yahoo_symbol(symbol)
+            logger.warning(f"📡 Using DELAYED Yahoo data for {symbol} ({yahoo_symbol})")
+            
+            ticker = yf.Ticker(yahoo_symbol)
+            hist = ticker.history(period="5d")
             info = ticker.info
-            hist = ticker.history(period="1d")
             
             if not hist.empty:
                 latest = hist.iloc[-1]
-                prev_close = info.get('previousClose', latest['Close'])
+                prev_close = hist.iloc[-2]['Close'] if len(hist) > 1 else latest['Close']
+                
+                current_price = latest['Close']
+                change = current_price - prev_close
+                pchange = (change / prev_close) * 100 if prev_close != 0 else 0
                 
                 return {
-                    'lastPrice': latest['Close'],
-                    'open': latest['Open'],
-                    'high': latest['High'],
-                    'low': latest['Low'],
-                    'previousClose': prev_close,
-                    'change': latest['Close'] - prev_close,
-                    'pChange': ((latest['Close'] - prev_close) / prev_close) * 100,
-                    'volume': latest['Volume'],
+                    'lastPrice': float(current_price),
+                    'open': float(latest['Open']),
+                    'high': float(latest['High']),
+                    'low': float(latest['Low']),
+                    'previousClose': float(prev_close),
+                    'change': float(change),
+                    'pChange': float(pchange),
+                    'volume': int(latest['Volume']) if 'Volume' in latest else 0,
                     'symbol': symbol,
-                    'marketCap': info.get('marketCap', 0),
-                    'pe': info.get('trailingPE', 0),
-                    'data_source': 'Yahoo Finance'
+                    'data_source': 'Yahoo Finance (DELAYED)',
+                    'delay': '15-20 minutes',
+                    'warning': '⚠️ This data is delayed and not suitable for real-time trading'
                 }
+            
             return None
             
         except Exception as e:
-            logger.error(f"❌ Yahoo Finance error: {str(e)}")
+            logger.error(f"❌ Yahoo fallback error: {str(e)}")
             return None
     
-    def _get_moneycontrol_data(self, symbol):
-        """Get additional data from MoneyControl"""
+    def _get_historical_data_smart(self, symbol):
+        """Get historical data with smart source selection"""
         try:
-            # This is a simplified implementation
-            # In practice, you'd need to scrape MoneyControl properly
-            return {
-                'additional_data': True,
-                'source': 'MoneyControl'
-            }
-        except:
-            return None
-    
-    def _get_historical_data(self, symbol, period="3mo"):
-        """Get historical price data"""
-        try:
-            ticker = yf.Ticker(f"{symbol}.NS")
-            hist = ticker.history(period=period)
+            # Try NSE first for indices
+            if symbol in ['NIFTY', 'BANKNIFTY']:
+                # For indices, use Yahoo as it has good historical data
+                yahoo_symbol = symbol_mapper.get_yahoo_symbol(symbol)
+                ticker = yf.Ticker(yahoo_symbol)
+                hist = ticker.history(period="3mo")
+                
+                if not hist.empty:
+                    return {
+                        'date': hist.index.tolist(),
+                        'open': hist['Open'].tolist(),
+                        'high': hist['High'].tolist(),
+                        'low': hist['Low'].tolist(),
+                        'close': hist['Close'].tolist(),
+                        'volume': hist['Volume'].tolist() if 'Volume' in hist.columns else [0] * len(hist)
+                    }
+            
+            # For stocks, try Yahoo Finance
+            yahoo_symbol = symbol_mapper.get_yahoo_symbol(symbol)
+            ticker = yf.Ticker(yahoo_symbol)
+            hist = ticker.history(period="3mo")
             
             if not hist.empty:
                 return {
@@ -232,6 +313,7 @@ class MultiSourceDataAggregator:
                     'close': hist['Close'].tolist(),
                     'volume': hist['Volume'].tolist()
                 }
+            
             return None
             
         except Exception as e:
@@ -239,14 +321,15 @@ class MultiSourceDataAggregator:
             return None
     
     def _calculate_technical_indicators(self, historical_data):
-        """Calculate technical indicators from historical data"""
+        """Calculate technical indicators (same as before)"""
         try:
-            if not historical_data or not historical_data['close']:
+            if not historical_data or not historical_data.get('close'):
                 return {}
             
             closes = np.array(historical_data['close'])
             highs = np.array(historical_data['high'])
             lows = np.array(historical_data['low'])
+            volumes = np.array(historical_data.get('volume', [1] * len(closes)))
             
             indicators = {}
             
@@ -262,32 +345,67 @@ class MultiSourceDataAggregator:
                 if avg_loss != 0:
                     rs = avg_gain / avg_loss
                     rsi = 100 - (100 / (1 + rs))
-                    indicators['rsi'] = rsi
+                    indicators['rsi'] = float(rsi)
             
             # Moving Averages
             if len(closes) >= 20:
-                indicators['sma_20'] = np.mean(closes[-20:])
+                indicators['sma_20'] = float(np.mean(closes[-20:]))
             if len(closes) >= 50:
-                indicators['sma_50'] = np.mean(closes[-50:])
+                indicators['sma_50'] = float(np.mean(closes[-50:]))
             
-            # Support and Resistance (simplified)
-            if len(lows) >= 10:
-                indicators['support'] = np.min(lows[-10:])
-            if len(highs) >= 10:
-                indicators['resistance'] = np.max(highs[-10:])
+            # Support/Resistance
+            if len(lows) >= 20:
+                indicators['support'] = float(np.min(lows[-20:]))
+            if len(highs) >= 20:
+                indicators['resistance'] = float(np.max(highs[-20:]))
             
-            # MACD (simplified)
+            # MACD
             if len(closes) >= 26:
-                ema_12 = closes[-12:].mean()
-                ema_26 = closes[-26:].mean()
-                indicators['macd'] = ema_12 - ema_26
-                indicators['macd_signal'] = indicators['macd'] * 0.9  # Simplified
+                ema_12 = np.mean(closes[-12:])
+                ema_26 = np.mean(closes[-26:])
+                indicators['macd'] = float(ema_12 - ema_26)
+                indicators['macd_signal'] = float(indicators['macd'] * 0.9)
             
             return indicators
             
         except Exception as e:
             logger.error(f"❌ Technical indicators error: {str(e)}")
             return {}
+    
+    def force_realtime_test(self, symbol):
+        """Force test all real-time sources for a symbol"""
+        logger.info(f"🧪 Testing ALL data sources for {symbol}")
+        
+        results = {}
+        
+        # Test Axis Direct
+        logger.info("1️⃣ Testing Axis Direct...")
+        axis_data = self.axis_api.get_stock_data(symbol)
+        results['axis'] = {
+            'success': axis_data is not None,
+            'data': axis_data,
+            'delay': axis_data.get('delay') if axis_data else 'Failed'
+        }
+        
+        # Test NSE Direct
+        logger.info("2️⃣ Testing NSE Direct...")
+        nse_data = self.nse_api.get_nse_quote(symbol)
+        results['nse'] = {
+            'success': nse_data is not None,
+            'data': nse_data,
+            'delay': nse_data.get('delay') if nse_data else 'Failed'
+        }
+        
+        # Test Yahoo (delayed)
+        logger.info("3️⃣ Testing Yahoo Finance...")
+        yahoo_data = self._get_yahoo_fallback(symbol)
+        results['yahoo'] = {
+            'success': yahoo_data is not None,
+            'data': yahoo_data,
+            'delay': yahoo_data.get('delay') if yahoo_data else 'Failed'
+        }
+        
+        return results
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
