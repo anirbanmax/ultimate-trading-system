@@ -2510,7 +2510,7 @@ def main():
             for source in analysis['data_sources']:
                 st.markdown(f'<span class="feature-badge">{source}</span>', unsafe_allow_html=True)
             
-            # Create comprehensive tabs
+          # Create comprehensive tabs
             tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
                 "🎯 Trading Signals", 
                 "📊 Price & Technical", 
@@ -2592,7 +2592,13 @@ def main():
                     pchange = price_data['pChange']
                     st.metric("📊 Change %", f"{pchange:.2f}%", delta=f"{pchange:.2f}%")
                 with col4:
-                    st.metric("🕐 Data Age", "Real-time")
+                    data_source = price_data.get('data_source', 'Unknown')
+                    if 'Real-time' in data_source or 'Axis Direct' in data_source:
+                        st.success("🟢 Real-time")
+                    elif 'Yahoo' in data_source:
+                        st.warning("🟡 Delayed")
+                    else:
+                        st.info("📊 Data Source")
                 
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
@@ -2651,30 +2657,8 @@ def main():
                         decreasing_line_color='red'
                     ))
                     
-                    # Add technical indicators if available
-                    if analysis['technical_indicators']:
-                        tech = analysis['technical_indicators']
-                        if 'sma_20' in tech and 'sma_50' in tech:
-                            # Add moving averages
-                            sma_20_line = [tech['sma_20']] * len(hist_data['date'][-60:])
-                            sma_50_line = [tech['sma_50']] * len(hist_data['date'][-60:])
-                            
-                            fig.add_trace(go.Scatter(
-                                x=hist_data['date'][-60:],
-                                y=sma_20_line,
-                                name='SMA 20',
-                                line=dict(color='blue', width=1)
-                            ))
-                            
-                            fig.add_trace(go.Scatter(
-                                x=hist_data['date'][-60:],
-                                y=sma_50_line,
-                                name='SMA 50',
-                                line=dict(color='orange', width=1)
-                            ))
-                    
                     fig.update_layout(
-                        title=f"{selected_instrument} - Technical Chart (Real Data)",
+                        title=f"{selected_instrument} - Technical Chart",
                         xaxis_title="Date",
                         yaxis_title="Price (₹)",
                         height=600,
@@ -2684,154 +2668,95 @@ def main():
                     
                     st.plotly_chart(fig, use_container_width=True)
             
- with tab3:
-    st.subheader("💰 FII/DII Flow Analysis")
-    
-    if analysis['fii_dii_data']:
-        fii_dii = analysis['fii_dii_data']
-        
-        # FIXED: Proper column layout instead of HTML
-        st.markdown("### 🌍 Foreign Institutional Investors (FII)")
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("💰 Buy", f"₹{fii_dii['FII']['buy']:.0f} Cr")
-        with col2:
-            st.metric("💸 Sell", f"₹{fii_dii['FII']['sell']:.0f} Cr")
-        with col3:
-            fii_net = fii_dii['FII']['net']
-            st.metric("📊 Net", f"₹{fii_net:+.0f} Cr", delta=f"{fii_net:+.0f}")
-        
-        st.markdown("### 🏠 Domestic Institutional Investors (DII)")
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("💰 Buy", f"₹{fii_dii['DII']['buy']:.0f} Cr")
-        with col2:
-            st.metric("💸 Sell", f"₹{fii_dii['DII']['sell']:.0f} Cr")
-        with col3:
-            dii_net = fii_dii['DII']['net']
-            st.metric("📊 Net", f"₹{dii_net:+.0f} Cr", delta=f"{dii_net:+.0f}")
-        
-        # Market sentiment analysis
-        if 'market_sentiment' in fii_dii:
-            sentiment_data = fii_dii['market_sentiment']
-            
-            st.markdown("---")
-            st.subheader("📈 Market Sentiment Analysis")
-            
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                sentiment = sentiment_data['sentiment']
-                if sentiment == "Very Bullish" or sentiment == "Bullish":
-                    st.success(f"📊 Market Sentiment: **{sentiment}**")
-                elif sentiment == "Very Bearish" or sentiment == "Bearish":
-                    st.error(f"📊 Market Sentiment: **{sentiment}**")
+            with tab3:
+                st.subheader("💰 FII/DII Flow Analysis")
+                
+                if analysis['fii_dii_data']:
+                    fii_dii = analysis['fii_dii_data']
+                    
+                    # FII Section
+                    st.markdown("### 🌍 Foreign Institutional Investors (FII)")
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("💰 Buy", f"₹{fii_dii['FII']['buy']:.0f} Cr")
+                    with col2:
+                        st.metric("💸 Sell", f"₹{fii_dii['FII']['sell']:.0f} Cr")
+                    with col3:
+                        fii_net = fii_dii['FII']['net']
+                        st.metric("📊 Net", f"₹{fii_net:+.0f} Cr", delta=f"{fii_net:+.0f}")
+                    
+                    # DII Section
+                    st.markdown("### 🏠 Domestic Institutional Investors (DII)")
+                    
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("💰 Buy", f"₹{fii_dii['DII']['buy']:.0f} Cr")
+                    with col2:
+                        st.metric("💸 Sell", f"₹{fii_dii['DII']['sell']:.0f} Cr")
+                    with col3:
+                        dii_net = fii_dii['DII']['net']
+                        st.metric("📊 Net", f"₹{dii_net:+.0f} Cr", delta=f"{dii_net:+.0f}")
+                    
+                    # Market sentiment analysis
+                    if 'market_sentiment' in fii_dii:
+                        sentiment_data = fii_dii['market_sentiment']
+                        
+                        st.markdown("---")
+                        st.subheader("📈 Market Sentiment Analysis")
+                        
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            sentiment = sentiment_data['sentiment']
+                            if sentiment in ["Very Bullish", "Bullish"]:
+                                st.success(f"📊 Market Sentiment: **{sentiment}**")
+                            elif sentiment in ["Very Bearish", "Bearish"]:
+                                st.error(f"📊 Market Sentiment: **{sentiment}**")
+                            else:
+                                st.info(f"📊 Market Sentiment: **{sentiment}**")
+                        
+                        with col2:
+                            score = sentiment_data['score']
+                            st.metric("💪 Sentiment Score", f"{score}/10")
+                        
+                        with col3:
+                            combined_flow = fii_dii['FII']['net'] + fii_dii['DII']['net']
+                            st.metric("🌊 Combined Flow", f"₹{combined_flow:+.0f} Cr")
+                        
+                        # Investment insights
+                        st.subheader("💡 Investment Insights")
+                        
+                        fii_net = fii_dii['FII']['net']
+                        dii_net = fii_dii['DII']['net']
+                        
+                        if fii_net > 500:
+                            st.success("💰 **Strong FII Inflows:** Positive global sentiment towards Indian markets")
+                        elif fii_net < -500:
+                            st.warning("⚠️ **Heavy FII Outflows:** Risk-off sentiment or global factors affecting flows")
+                        elif fii_net > 0:
+                            st.info("📈 **Moderate FII Buying:** Cautious positive sentiment")
+                        else:
+                            st.info("📉 **FII Selling:** Some profit booking or risk concerns")
+                        
+                        if dii_net > 300:
+                            st.success("🏠 **Strong DII Buying:** Domestic institutional confidence high")
+                        elif dii_net < -200:
+                            st.warning("📉 **DII Selling:** Concerns about valuations or fundamentals")
+                        elif dii_net > 0:
+                            st.info("📈 **Moderate DII Buying:** Steady domestic support")
+                        else:
+                            st.info("📊 **DII Neutral:** Balanced domestic institutional activity")
+                        
+                        # Counter-balancing effect analysis
+                        if fii_net < 0 and dii_net > abs(fii_net * 0.5):
+                            st.info("⚖️ **Market Stabilization:** DII buying is offsetting FII selling pressure")
+                        elif fii_net > 0 and dii_net > 0:
+                            st.success("🚀 **Institutional Alignment:** Both FII and DII are buying - strong bullish signal")
+                        elif fii_net < 0 and dii_net < 0:
+                            st.error("📉 **Institutional Exit:** Both FII and DII selling - bearish pressure")
+                
                 else:
-                    st.info(f"📊 Market Sentiment: **{sentiment}**")
-            
-            with col2:
-                score = sentiment_data['score']
-                st.metric("💪 Sentiment Score", f"{score}/10")
-            
-            with col3:
-                combined_flow = fii_dii['FII']['net'] + fii_dii['DII']['net']
-                st.metric("🌊 Combined Flow", f"₹{combined_flow:+.0f} Cr")
-            
-            # Flow impact analysis
-            st.subheader("📈 Flow Impact Analysis")
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                fii_impact = sentiment_data.get('fii_impact', 'Neutral')
-                if fii_impact == "Positive":
-                    st.success(f"🌍 **FII Impact:** {fii_impact}")
-                elif fii_impact == "Negative":
-                    st.error(f"🌍 **FII Impact:** {fii_impact}")
-                else:
-                    st.info(f"🌍 **FII Impact:** {fii_impact}")
-            
-            with col2:
-                dii_impact = sentiment_data.get('dii_impact', 'Neutral')
-                if dii_impact == "Positive":
-                    st.success(f"🏠 **DII Impact:** {dii_impact}")
-                elif dii_impact == "Negative":
-                    st.error(f"🏠 **DII Impact:** {dii_impact}")
-                else:
-                    st.info(f"🏠 **DII Impact:** {dii_impact}")
-            
-            # Investment insights
-            st.subheader("💡 Investment Insights")
-            
-            fii_net = fii_dii['FII']['net']
-            dii_net = fii_dii['DII']['net']
-            
-            if fii_net > 500:
-                st.success("💰 **Strong FII Inflows:** Positive global sentiment towards Indian markets")
-            elif fii_net < -500:
-                st.warning("⚠️ **Heavy FII Outflows:** Risk-off sentiment or global factors affecting flows")
-            elif fii_net > 0:
-                st.info("📈 **Moderate FII Buying:** Cautious positive sentiment")
-            else:
-                st.info("📉 **FII Selling:** Some profit booking or risk concerns")
-            
-            if dii_net > 300:
-                st.success("🏠 **Strong DII Buying:** Domestic institutional confidence high")
-            elif dii_net < -200:
-                st.warning("📉 **DII Selling:** Concerns about valuations or fundamentals")
-            elif dii_net > 0:
-                st.info("📈 **Moderate DII Buying:** Steady domestic support")
-            else:
-                st.info("📊 **DII Neutral:** Balanced domestic institutional activity")
-            
-            # Counter-balancing effect analysis
-            if fii_net < 0 and dii_net > abs(fii_net * 0.5):
-                st.info("⚖️ **Market Stabilization:** DII buying is offsetting FII selling pressure")
-            elif fii_net > 0 and dii_net > 0:
-                st.success("🚀 **Institutional Alignment:** Both FII and DII are buying - strong bullish signal")
-            elif fii_net < 0 and dii_net < 0:
-                st.error("📉 **Institutional Exit:** Both FII and DII selling - bearish pressure")
-        
-        # FII/DII Flow Chart
-        st.subheader("📊 Flow Visualization")
-        
-        # Create a simple bar chart
-        flow_data = pd.DataFrame({
-            'Investor Type': ['FII', 'DII'],
-            'Net Flow (₹ Cr)': [fii_dii['FII']['net'], fii_dii['DII']['net']],
-            'Buy (₹ Cr)': [fii_dii['FII']['buy'], fii_dii['DII']['buy']],
-            'Sell (₹ Cr)': [fii_dii['FII']['sell'], fii_dii['DII']['sell']]
-        })
-        
-        # Net flow chart
-        fig = go.Figure()
-        
-        colors = ['red' if x < 0 else 'green' for x in flow_data['Net Flow (₹ Cr)']]
-        
-        fig.add_trace(go.Bar(
-            x=flow_data['Investor Type'],
-            y=flow_data['Net Flow (₹ Cr)'],
-            marker_color=colors,
-            name='Net Flow',
-            text=[f"₹{x:+.0f} Cr" for x in flow_data['Net Flow (₹ Cr)']],
-            textposition='auto'
-        ))
-        
-        fig.update_layout(
-            title="FII/DII Net Flow Comparison",
-            xaxis_title="Investor Type",
-            yaxis_title="Net Flow (₹ Crores)",
-            height=400,
-            showlegend=False
-        )
-        
-        # Add zero line
-        fig.add_hline(y=0, line_dash="dash", line_color="gray")
-        
-        st.plotly_chart(fig, use_container_width=True)
-        
-    else:
-        st.info("📊 FII/DII data not available. Using alternative sentiment indicators.")
+                    st.info("📊 FII/DII data not available. Using alternative sentiment indicators.")
             
             with tab4:
                 st.subheader("🎲 Options Chain Analysis")
@@ -2847,85 +2772,6 @@ def main():
                         st.metric("🔗 Data Source", options_data['data_source'])
                     with col3:
                         st.metric("🕐 Updated", options_data['timestamp'].strftime("%H:%M:%S"))
-                    
-                    # Option chain display
-                    calls = options_data.get('calls', [])
-                    puts = options_data.get('puts', [])
-                    
-                    if calls and puts:
-                        st.subheader("📊 Option Chain")
-                        
-                        # Find ATM options
-                        underlying = options_data['underlying_price']
-                        
-                        # Display ATM and nearby strikes
-                        atm_range = [strike for strike in set([c['strike'] for c in calls]) 
-                                   if abs(strike - underlying) <= 200]  # ±200 points from ATM
-                        atm_range.sort()
-                        
-                        # Create option chain table
-                        chain_data = []
-                        for strike in atm_range[:10]:  # Show 10 strikes around ATM
-                            call_data = next((c for c in calls if c['strike'] == strike), {})
-                            put_data = next((p for p in puts if p['strike'] == strike), {})
-                            
-                            chain_data.append({
-                                'Strike': f"₹{strike:.0f}",
-                                'Call LTP': f"₹{call_data.get('ltp', 0):.2f}",
-                                'Call OI': f"{call_data.get('oi', 0):,}",
-                                'Call Volume': f"{call_data.get('volume', 0):,}",
-                                'Put LTP': f"₹{put_data.get('ltp', 0):.2f}",
-                                'Put OI': f"{put_data.get('oi', 0):,}",
-                                'Put Volume': f"{put_data.get('volume', 0):,}"
-                            })
-                        
-                        chain_df = pd.DataFrame(chain_data)
-                        st.dataframe(chain_df, use_container_width=True, hide_index=True)
-                        
-                        # PCR Analysis
-                        total_call_oi = sum(c.get('oi', 0) for c in calls)
-                        total_put_oi = sum(p.get('oi', 0) for p in puts)
-                        pcr = total_put_oi / total_call_oi if total_call_oi > 0 else 1
-                        
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            st.metric("📊 Put-Call Ratio (PCR)", f"{pcr:.2f}")
-                        with col2:
-                            pcr_signal = "Bullish" if pcr > 1.2 else "Bearish" if pcr < 0.8 else "Neutral"
-                            st.metric("📈 PCR Signal", pcr_signal)
-                        with col3:
-                            total_oi = total_call_oi + total_put_oi
-                            st.metric("🔢 Total OI", f"{total_oi:,}")
-                        
-                        # Options insights
-                        st.subheader("💡 Options Insights")
-                        
-                        if pcr > 1.3:
-                            st.success("🐂 High PCR indicates oversold condition - Bullish sentiment")
-                        elif pcr < 0.7:
-                            st.warning("🐻 Low PCR indicates overbought condition - Bearish sentiment")
-                        else:
-                            st.info("➡️ Neutral PCR suggests balanced market sentiment")
-                        
-                        # Max Pain analysis (simplified)
-                        if len(calls) > 5 and len(puts) > 5:
-                            strikes_with_data = []
-                            for strike in set([c['strike'] for c in calls]):
-                                call_oi = next((c.get('oi', 0) for c in calls if c['strike'] == strike), 0)
-                                put_oi = next((p.get('oi', 0) for p in puts if p['strike'] == strike), 0)
-                                
-                                # Simplified max pain calculation
-                                pain_value = 0
-                                if strike < underlying:
-                                    pain_value += call_oi * (underlying - strike)
-                                if strike > underlying:
-                                    pain_value += put_oi * (strike - underlying)
-                                
-                                strikes_with_data.append({'strike': strike, 'pain': pain_value, 'total_oi': call_oi + put_oi})
-                            
-                            if strikes_with_data:
-                                max_pain_strike = min(strikes_with_data, key=lambda x: x['pain'])['strike']
-                                st.info(f"🎯 Estimated Max Pain: ₹{max_pain_strike:.0f}")
                     
                     # Options signals display
                     if analysis['options_signals']:
@@ -2959,67 +2805,30 @@ def main():
                 if analysis['geopolitical_sentiment']:
                     geo_data = analysis['geopolitical_sentiment']
                     
-                    st.markdown(f"""
-                    <div class="geo-sentiment-card">
-                        <h3>🌍 Global Sentiment Overview</h3>
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0;">
-                            <div><strong>Overall Sentiment:</strong> {geo_data['overall_sentiment'].title()}</div>
-                            <div><strong>Confidence:</strong> {geo_data['confidence']:.0f}%</div>
-                            <div><strong>Risk Level:</strong> {geo_data['risk_level']}</div>
-                        </div>
-                        <div style="margin-top: 1rem;">
-                            <strong>Market Impact:</strong> {geo_data['market_impact'].replace('_', ' ').title()}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("🌍 Overall Sentiment", geo_data['overall_sentiment'].title())
+                    with col2:
+                        st.metric("📊 Confidence", f"{geo_data['confidence']:.0f}%")
+                    with col3:
+                        st.metric("⚠️ Risk Level", geo_data['risk_level'])
                     
                     # Key concerns
                     if geo_data.get('key_concerns'):
                         st.subheader("⚠️ Key Geopolitical Concerns")
                         for concern in geo_data['key_concerns']:
                             st.write(f"• {concern.replace('_', ' ').title()}")
-                    
-                    # High impact news
-                    if geo_data.get('high_impact_news'):
-                        st.subheader("📰 High Impact Events")
-                        for news in geo_data['high_impact_news']:
-                            st.write(f"• {news}")
-                    
-                    # Sentiment breakdown
-                    if 'sentiment_breakdown' in geo_data:
-                        st.subheader("📊 Sentiment Breakdown")
-                        sentiment_df = pd.DataFrame(list(geo_data['sentiment_breakdown'].items()), 
-                                                  columns=['Sentiment', 'Count'])
-                        
-                        fig = px.pie(sentiment_df, values='Count', names='Sentiment', 
-                                   title="News Sentiment Distribution")
-                        st.plotly_chart(fig, use_container_width=True)
                 
                 # Recent geopolitical news
                 if analysis['geopolitical_news']:
                     st.subheader("📰 Recent Geopolitical News")
                     
-                    for news in analysis['geopolitical_news']:
-                        impact_level = news.get('geopolitical_impact', {}).get('impact_level', 'low')
-                        market_sentiment = news.get('market_sentiment', {}).get('sentiment', 'neutral')
-                        
-                        # Color code based on impact
-                        if impact_level == 'high':
-                            border_color = '#ff4757'
-                        elif impact_level == 'medium':
-                            border_color = '#ffa502'
-                        else:
-                            border_color = '#70a1ff'
-                        
+                    for news in analysis['geopolitical_news'][:3]:
                         st.markdown(f"""
-                        <div style="border-left: 4px solid {border_color}; padding: 1rem; margin: 0.5rem 0; background: #f8f9fa;">
-                            <h4>{news['title']}</h4>
-                            <p><strong>Source:</strong> {news['source']} | 
-                               <strong>Impact:</strong> {impact_level.title()} | 
-                               <strong>Sentiment:</strong> {market_sentiment.title()}</p>
-                            {f"<p>{news['description']}</p>" if news.get('description') else ""}
-                        </div>
-                        """, unsafe_allow_html=True)
+                        **{news['title']}**
+                        
+                        *Source: {news['source']}*
+                        """)
             
             with tab6:
                 st.subheader("⚠️ Comprehensive Risk Analysis")
@@ -3027,55 +2836,23 @@ def main():
                 if analysis['risk_analysis']:
                     risk_data = analysis['risk_analysis']
                     
-                    st.markdown(f"""
-                    <div class="risk-card">
-                        <h3>⚠️ Risk Assessment</h3>
-                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0;">
-                            <div><strong>Risk Score:</strong> {risk_data['risk_score']}/10</div>
-                            <div><strong>Risk Level:</strong> {risk_data['risk_level']}</div>
-                            <div><strong>Recommendation:</strong> {risk_data['recommendation'][:30]}...</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        st.metric("⚠️ Risk Score", f"{risk_data['risk_score']}/10")
+                    with col2:
+                        st.metric("📊 Risk Level", risk_data['risk_level'])
+                    with col3:
+                        if 'position_sizing' in risk_data:
+                            equity_size = risk_data['position_sizing']['equity']
+                            st.metric("📈 Position Size", f"{equity_size*100:.0f}%")
                     
                     # Risk factors
                     st.subheader("🔍 Identified Risk Factors")
                     for factor in risk_data['risk_factors']:
                         st.write(f"• {factor}")
                     
-                    # Position sizing recommendations
-                    if 'position_sizing' in risk_data:
-                        st.subheader("📊 Recommended Position Sizing")
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            equity_size = risk_data['position_sizing']['equity']
-                            st.metric("📈 Equity Position", f"{equity_size*100:.0f}% of normal")
-                        with col2:
-                            options_size = risk_data['position_sizing']['options']
-                            st.metric("🎲 Options Position", f"{options_size*100:.0f}% of normal")
-                        
-                        # Risk management tips
-                        st.subheader("💡 Risk Management Tips")
-                        
-                        if risk_data['risk_level'] == 'HIGH':
-                            st.error("🚨 **HIGH RISK ENVIRONMENT**")
-                            st.write("• Consider reducing position sizes significantly")
-                            st.write("• Use tighter stop losses")
-                            st.write("• Avoid leveraged positions")
-                            st.write("• Focus on capital preservation")
-                        elif risk_data['risk_level'] == 'MEDIUM':
-                            st.warning("⚠️ **MODERATE RISK ENVIRONMENT**")
-                            st.write("• Use standard risk management practices")
-                            st.write("• Maintain appropriate stop losses")
-                            st.write("• Diversify across positions")
-                            st.write("• Monitor positions closely")
-                        else:
-                            st.success("✅ **LOW RISK ENVIRONMENT**")
-                            st.write("• Normal position sizing acceptable")
-                            st.write("• Good conditions for new positions")
-                            st.write("• Consider scaling into larger positions")
-                            st.write("• Maintain discipline nonetheless")
+                    # Risk management recommendation
+                    st.info(f"💡 **Recommendation:** {risk_data['recommendation']}")
             
             with tab7:
                 st.subheader("🔮 Market Outlook")
@@ -3090,37 +2867,19 @@ def main():
                         'NEUTRAL': 'orange'
                     }.get(outlook_data['overall_outlook'], 'blue')
                     
-                    st.markdown(f"""
-                    <div style="background: {outlook_color}; color: white; padding: 2rem; border-radius: 15px; text-align: center; margin: 1rem 0;">
-                        <h2>🔮 Market Outlook: {outlook_data['overall_outlook']}</h2>
-                        <p><strong>Time Horizon:</strong> {outlook_data['time_horizon']}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+                    if outlook_data['overall_outlook'] == 'BULLISH':
+                        st.success(f"🔮 Market Outlook: **{outlook_data['overall_outlook']}**")
+                    elif outlook_data['overall_outlook'] == 'BEARISH':
+                        st.error(f"🔮 Market Outlook: **{outlook_data['overall_outlook']}**")
+                    else:
+                        st.info(f"🔮 Market Outlook: **{outlook_data['overall_outlook']}**")
+                    
+                    st.write(f"**Time Horizon:** {outlook_data['time_horizon']}")
                     
                     # Outlook factors
                     st.subheader("📊 Analysis Factors")
                     for factor in outlook_data['outlook_factors']:
                         st.write(f"• {factor}")
-                    
-                    # Key levels
-                    if 'key_levels' in outlook_data:
-                        st.subheader("🎯 Key Price Levels")
-                        
-                        levels = outlook_data['key_levels']
-                        col1, col2, col3 = st.columns(3)
-                        
-                        with col1:
-                            st.metric("📉 Support", f"₹{levels.get('support_1', 0):.2f}")
-                            st.metric("📈 SMA 20", f"₹{levels.get('sma_20', 0):.2f}")
-                        with col2:
-                            st.metric("📈 Resistance", f"₹{levels.get('resistance_1', 0):.2f}")
-                            st.metric("📈 SMA 50", f"₹{levels.get('sma_50', 0):.2f}")
-                        with col3:
-                            st.metric("💰 Current", f"₹{levels.get('current_price', 0):.2f}")
-                    
-                    # Next review
-                    if 'next_review' in outlook_data:
-                        st.info(f"🔄 Next outlook review scheduled: {outlook_data['next_review'].strftime('%Y-%m-%d %H:%M')}")
             
             with tab8:
                 st.subheader("📈 Trading Performance & History")
@@ -3143,52 +2902,14 @@ def main():
                     st.subheader("📊 Signal Breakdown")
                     signals_df = pd.DataFrame(performance['signals_summary'])
                     st.dataframe(signals_df, use_container_width=True, hide_index=True)
-                    
-                    # Signal distribution chart
-                    if not signals_df.empty:
-                        fig = px.bar(signals_df, x='action', y='count', color='signal_type',
-                                   title="Signal Distribution by Action & Type")
-                        st.plotly_chart(fig, use_container_width=True)
-                
-                # FII/DII trends
-                if performance['fii_dii_trends']:
-                    st.subheader("💰 FII/DII Flow Trends")
-                    
-                    fii_dii_df = pd.DataFrame(performance['fii_dii_trends'])
-                    
-                    if not fii_dii_df.empty:
-                        fig = go.Figure()
-                        
-                        fig.add_trace(go.Scatter(
-                            x=fii_dii_df['date'],
-                            y=fii_dii_df['avg_fii_net'],
-                            mode='lines+markers',
-                            name='FII Net Flow',
-                            line=dict(color='blue')
-                        ))
-                        
-                        fig.add_trace(go.Scatter(
-                            x=fii_dii_df['date'],
-                            y=fii_dii_df['avg_dii_net'],
-                            mode='lines+markers',
-                            name='DII Net Flow',
-                            line=dict(color='orange')
-                        ))
-                        
-                        fig.update_layout(
-                            title="FII/DII Flow Trends (Last 30 Days)",
-                            xaxis_title="Date",
-                            yaxis_title="Net Flow (₹ Crores)",
-                            height=400
-                        )
-                        
-                        st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("📊 No recent trading signals to display.")
                 
                 # Recent alerts
                 if 'market_alerts' in st.session_state and st.session_state.market_alerts:
                     st.subheader("🚨 Recent Alerts")
                     
-                    recent_alerts = st.session_state.market_alerts[-10:]  # Last 10 alerts
+                    recent_alerts = st.session_state.market_alerts[-5:]  # Last 5 alerts
                     for alert in reversed(recent_alerts):
                         severity_color = {
                             'HIGH': '#ff4757',
