@@ -511,9 +511,6 @@ Time: {datetime.now().strftime('%H:%M:%S')}"""
             return self.send_message(message)
         return False
 
-# NOW YOUR EXISTING CLASS CONTINUES:
-class FIIDIIDataProvider:
-
 # =============================================================================
 # FII/DII DATA INTEGRATION
 # =============================================================================
