@@ -2422,6 +2422,194 @@ def main():
     # Sidebar
     with st.sidebar:
         st.header("🎯 Ultimate Analysis")
+
+# API Testing Section (add this in your sidebar after the monitoring controls)
+st.markdown("---")
+st.subheader("🧪 Data Source Testing")
+
+if st.button("🔍 Test All Data Sources", use_container_width=True):
+    with st.spinner("Testing all data sources for real-time capability..."):
+        test_symbol = 'NIFTY'  # Test with NIFTY
+        
+        # Get the data aggregator
+        aggregator = st.session_state.ultimate_trading_system.data_aggregator
+        
+        # Test all sources individually
+        st.subheader("📊 Data Source Test Results")
+        
+        # Test 1: Axis Direct API
+        st.write("**1️⃣ Testing Axis Direct API...**")
+        try:
+            axis_api = aggregator.axis_api
+            axis_data = axis_api._get_realtime_data(test_symbol)
+            
+            if axis_data:
+                st.success(f"✅ **Axis Direct: WORKING** ({axis_data.get('delay', 'real-time')})")
+                st.write(f"💰 NIFTY Price: ₹{axis_data['lastPrice']:.2f} ({axis_data['pChange']:+.2f}%)")
+                st.write(f"📊 Source: {axis_data['data_source']}")
+                st.write("🎯 **Status: REAL-TIME DATA AVAILABLE**")
+            else:
+                st.error("❌ **Axis Direct: FAILED**")
+                st.write("🔧 **Issues:**")
+                st.write("• API key may need authentication")
+                st.write("• Check client code + password requirement")
+                st.write("• Verify API permissions")
+        except Exception as e:
+            st.error("❌ **Axis Direct: ERROR**")
+            st.write(f"Error: {str(e)[:100]}...")
+        
+        # Test 2: Yahoo Finance (delayed but reliable)
+        st.write("**2️⃣ Testing Yahoo Finance...**")
+        try:
+            yahoo_data = axis_api._get_yahoo_data(test_symbol)
+            
+            if yahoo_data:
+                st.warning(f"⚠️ **Yahoo Finance: WORKING** ({yahoo_data.get('delay', '15-20 minutes')})")
+                st.write(f"💰 NIFTY Price: ₹{yahoo_data['lastPrice']:.2f} ({yahoo_data['pChange']:+.2f}%)")
+                st.write(f"📊 Source: {yahoo_data['data_source']}")
+                st.write("⚠️ **Status: DELAYED DATA (15-20 minutes)**")
+            else:
+                st.error("❌ **Yahoo Finance: FAILED**")
+        except Exception as e:
+            st.error("❌ **Yahoo Finance: ERROR**")
+            st.write(f"Error: {str(e)[:100]}...")
+        
+        # Test 3: Current system performance
+        st.write("**3️⃣ Testing Current System...**")
+        try:
+            current_data = aggregator.get_comprehensive_stock_data(test_symbol)
+            
+            if current_data['price_data']:
+                price_data = current_data['price_data']
+                data_source = price_data.get('data_source', 'Unknown')
+                freshness = price_data.get('data_freshness', 'Unknown')
+                
+                if 'REAL-TIME' in freshness:
+                    st.success(f"✅ **System Status: REAL-TIME**")
+                else:
+                    st.warning(f"⚠️ **System Status: DELAYED**")
+                
+                st.write(f"💰 Current Price: ₹{price_data['lastPrice']:.2f}")
+                st.write(f"📊 Active Source: {data_source}")
+                st.write(f"🕐 Data Quality: {freshness}")
+                st.write(f"📈 Technical Indicators: {len(current_data['technical_indicators'])} calculated")
+                
+            else:
+                st.error("❌ **System: NO DATA**")
+        except Exception as e:
+            st.error("❌ **System: ERROR**")
+            st.write(f"Error: {str(e)[:100]}...")
+        
+        # Summary and recommendations
+        st.markdown("---")
+        st.subheader("📋 Summary & Recommendations")
+        
+        # Determine best available source
+        axis_working = False
+        yahoo_working = False
+        
+        try:
+            axis_test = axis_api._get_realtime_data(test_symbol)
+            axis_working = axis_test is not None
+        except:
+            pass
+        
+        try:
+            yahoo_test = axis_api._get_yahoo_data(test_symbol)
+            yahoo_working = yahoo_test is not None
+        except:
+            pass
+        
+        if axis_working:
+            st.success("🏆 **Best Source: Axis Direct (Real-time)**")
+            st.write("✅ You have access to real-time data")
+            st.write("✅ Perfect for day trading and scalping")
+            st.write("✅ Institutional-grade data quality")
+        elif yahoo_working:
+            st.warning("🏆 **Best Source: Yahoo Finance (Delayed)**")
+            st.write("⚠️ Data is 15-20 minutes delayed")
+            st.write("⚠️ Suitable for swing trading and analysis")
+            st.write("⚠️ Not recommended for day trading")
+            st.write("💡 Consider upgrading to real-time data for active trading")
+        else:
+            st.error("❌ **No Data Sources Working**")
+            st.write("🔧 Check internet connection")
+            st.write("🔧 Verify API credentials")
+            st.write("🔧 Try restarting the application")
+
+if st.button("🔑 Test Axis API Authentication", use_container_width=True):
+    with st.spinner("Testing Axis Direct API authentication..."):
+        st.subheader("🔐 API Authentication Test")
+        
+        # Test basic API connection
+        axis_api = st.session_state.ultimate_trading_system.data_aggregator.axis_api
+        
+        st.write("**Testing API Key Format...**")
+        if len(axis_api.api_key) >= 32:
+            st.success("✅ API key format looks correct")
+        else:
+            st.warning("⚠️ API key might be too short")
+        
+        st.write("**Testing API Endpoint Access...**")
+        try:
+            # Try to access the base API
+            response = axis_api.session.get(axis_api.base_url, timeout=10)
+            st.success(f"✅ API endpoint accessible (Status: {response.status_code})")
+        except Exception as e:
+            st.error(f"❌ API endpoint not accessible: {str(e)}")
+        
+        st.write("**Testing Quote API...**")
+        success, result = axis_api.test_api_connection()
+        
+        if success:
+            st.success("✅ API authentication successful!")
+            st.write("🎯 Real-time data access confirmed")
+            if isinstance(result, dict):
+                st.json(result)
+        else:
+            st.error("❌ API authentication failed")
+            st.write("**Possible Solutions:**")
+            st.write("• Verify API key is correct")
+            st.write("• Check if additional authentication required")
+            st.write("• Contact broker for API access verification")
+            st.write("• Ensure account has market data permissions")
+            
+            st.write("**Error Details:**")
+            st.text(str(result)[:300] + "..." if len(str(result)) > 300 else str(result))
+
+# Current Data Status Display
+if hasattr(st.session_state, 'latest_comprehensive_analysis'):
+    analysis = st.session_state.latest_comprehensive_analysis
+    if analysis and 'price_data' in analysis and analysis['price_data']:
+        price_data = analysis['price_data']
+        
+        st.markdown("---")
+        st.subheader("📊 Current Data Status")
+        
+        data_source = price_data.get('data_source', 'Unknown')
+        freshness = price_data.get('data_freshness', 'Unknown')
+        
+        if 'REAL-TIME' in freshness:
+            st.success(f"✅ {freshness}")
+            st.success("🚀 **Trading Grade: EXCELLENT**")
+        elif 'DELAYED' in freshness:
+            st.warning(f"⚠️ {freshness}")
+            st.warning("📊 **Trading Grade: ANALYSIS ONLY**")
+        else:
+            st.info(f"ℹ️ {freshness}")
+        
+        st.write(f"**Data Source:** {data_source}")
+        if 'delay' in price_data:
+            st.write(f"**Delay:** {price_data['delay']}")
+        if 'timestamp' in price_data:
+            st.write(f"**Last Updated:** {price_data['timestamp'].strftime('%H:%M:%S')}")
+        
+        # Trading suitability
+        if 'REAL-TIME' in freshness:
+            st.write("**✅ Suitable for:** Day trading, Scalping, Options trading")
+        else:
+            st.write("**✅ Suitable for:** Swing trading, Investment analysis, Learning")
+            st.write("**❌ Not suitable for:** Day trading, Quick scalping")
         
         # Instrument selection
         selected_instrument = st.selectbox(
